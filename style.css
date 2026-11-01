@@ -278,3 +278,6 @@ input.flash { background: #fef9c3; border-color: var(--gold); }
   background: #0f172a; color: #fff; padding: 12px 18px; border-radius: 12px; font-size: 14px; font-weight: 500;
   max-width: calc(100vw - 32px); box-shadow: 0 8px 30px rgba(0,0,0,.3); animation: up .2s;
 }
+
+label.check { flex-direction: row; align-items: center; gap: 10px; font-size: 14px; color: var(--ink); font-weight: 500; }
+label.check input { width: 20px; height: 20px; padding: 0; accent-color: var(--brand2); }

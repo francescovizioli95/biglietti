@@ -838,7 +838,7 @@ function meVCard(me) {
   if (me.company) L.push(`ORG:${vEsc(me.company)}`);
   if (me.role) L.push(`TITLE:${vEsc(me.role)}`);
   if (me.mobile) L.push(`TEL;TYPE=CELL:${me.mobile.replace(/[^\d+]/g, '')}`);
-  if (me.phone) L.push(`TEL;TYPE=WORK:${me.phone.replace(/[^\d+]/g, '')}`);
+  if (me.phone) L.push(`TEL;TYPE=CELL:${me.phone.replace(/[^\d+]/g, '')}`);
   if (me.email) L.push(`EMAIL;TYPE=INTERNET:${me.email}`);
   if (me.website) L.push(`URL:${linkify(me.website)}`);
   if (me.linkedin) L.push(`URL:${linkify(me.linkedin)}`);
@@ -848,7 +848,7 @@ function meVCard(me) {
   return L.join('\r\n');
 }
 function makeQr(text) {
-  for (const ec of ['Q', 'M', 'L']) {
+  for (const ec of ['M', 'L']) {
     try {
       const q = qrcode(0, ec);
       q.addData(text);
@@ -859,12 +859,14 @@ function makeQr(text) {
   throw new Error('Troppi dati per il QR');
 }
 function drawQr(ctx, qr, x, y, size, dark = '#000') {
+  // moduli a dimensione intera: QR nitido e leggibile anche da schermo
   const n = qr.getModuleCount();
-  const cell = size / n;
+  const cell = Math.max(1, Math.floor(size / n));
+  const off = Math.floor((size - cell * n) / 2);
   ctx.fillStyle = dark;
   for (let r = 0; r < n; r++)
     for (let c = 0; c < n; c++)
-      if (qr.isDark(r, c)) ctx.fillRect(x + c * cell, y + r * cell, Math.ceil(cell), Math.ceil(cell));
+      if (qr.isDark(r, c)) ctx.fillRect(x + off + c * cell, y + off + r * cell, cell, cell);
 }
 function roundRect(ctx, x, y, w, h, r) {
   ctx.beginPath();
@@ -1049,17 +1051,28 @@ async function drawCard(canvas, me, tplKey) {
     me.website && ['web', me.website.replace(/^https?:\/\//, '').replace(/\/$/, '')],
     me.linkedin && ['in', me.linkedin.replace(/^https?:\/\/(www\.)?/, '')],
   ].filter(Boolean).slice(0, 4);
-  const lineH = contacts.length > 3 ? 40 : 46;
-  let cy = 432;
-  for (const [ico, val] of contacts) {
-    drawIcon(ctx, ico, P, cy - 21, 25, t.accent);
+  const twoCol = contacts.length > 2;
+  const colW = twoCol ? (leftMax + 20) / 2 : leftMax;
+  contacts.forEach(([ico, val], i) => {
+    const col = twoCol ? (i < Math.ceil(contacts.length / 2) ? 0 : 1) : 0;
+    const row = twoCol ? i % Math.ceil(contacts.length / 2) : i;
+    const x = P + col * colW;
+    const yy = 432 + row * 46;
+    drawIcon(ctx, ico, x, yy - 20, 23, t.accent);
     ctx.fillStyle = t.text;
-    let fs = 22;
+    let fs = twoCol ? 19 : 22;
     ctx.font = F(500, fs);
-    while (fs > 14 && ctx.measureText(val).width > leftMax - 44) ctx.font = F(500, --fs);
-    ctx.fillText(val, P + 42, cy);
-    cy += lineH;
-  }
+    const tagTxt = ico === 'mobile' && me.whatsapp === 'mobile' ? 'WHATSAPP' : '';
+    const room = colW - 44 - (tagTxt ? 80 : 0) - 10;
+    while (fs > 13 && ctx.measureText(val).width > room) ctx.font = F(500, --fs);
+    ctx.fillText(val, x + 38, yy);
+    if (tagTxt) {
+      const w = ctx.measureText(val).width;
+      ctx.fillStyle = t.accent;
+      ctx.font = F(700, 10.5);
+      spaced(tagTxt, x + 38 + w + 9, yy - 2, 1.6);
+    }
+  });
   ctx.restore();
 }
 function renderTemplates() {
@@ -1088,7 +1101,7 @@ function renderMe() {
 const meImgs = { logo: null, photo: null };
 function fillMeForm(me) {
   const f = $('#meForm');
-  for (const el of f.elements) if (el.name) el.value = me[el.name] || '';
+  for (const el of f.elements) if (el.name) { if (el.type === 'checkbox') el.checked = me[el.name] !== ''; else el.value = me[el.name] || ''; }
   meImgs.logo = me.logo || null;
   meImgs.photo = me.photo || null;
   renderImgPrev();
@@ -1126,7 +1139,7 @@ $('#meImgInput').onchange = async (e) => {
 $('#meForm').onsubmit = (e) => {
   e.preventDefault();
   const me = {};
-  for (const el of e.target.elements) if (el.name) me[el.name] = el.value.trim();
+  for (const el of e.target.elements) if (el.name) me[el.name] = el.type === 'checkbox' ? (el.checked ? el.value : '') : el.value.trim();
   me.logo = meImgs.logo;
   me.photo = meImgs.photo;
   try {
