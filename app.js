@@ -1318,7 +1318,7 @@ window.addEventListener('beforeinstallprompt', (e) => {
 });
 window.addEventListener('appinstalled', () => {
   $('#installBar').classList.add('hidden');
-  toast('Fatto! Trovi Otharis Ticket nella schermata Home', 4000);
+  toast('Fatto! Trovi Otharis Business Card nella schermata Home', 4000);
 });
 $('#installBtn').onclick = async () => {
   if (!installEvt) return;

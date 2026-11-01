@@ -1,5 +1,5 @@
 // Service worker: l'app funziona anche senza internet (utile in fiera)
-const VERSION = 'v7';
+const VERSION = 'v8';
 const SHELL = `shell-${VERSION}`;
 const VENDOR = 'vendor-v1';
 const SHELL_FILES = ['./', 'index.html', 'style.css', 'app.js', 'parse.js', 'db.js', 'lock.js', 'profili.js', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png', 'vendor/qrcode.js', 'vendor/fonts/manrope-latin-400-normal.woff2', 'vendor/fonts/manrope-latin-500-normal.woff2', 'vendor/fonts/manrope-latin-600-normal.woff2', 'vendor/fonts/manrope-latin-700-normal.woff2', 'vendor/fonts/manrope-latin-800-normal.woff2'];
