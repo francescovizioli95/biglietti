@@ -31,13 +31,13 @@ const Lock = (() => {
     const dots = el('#lockDots');
     dots.innerHTML = [0, 1, 2, 3, 4, 5].map((i) => `<i class="${i < pin.length ? 'on' : ''}"></i>`).join('');
     const titles = { unlock: 'Inserisci il PIN', set1: 'Scegli un PIN di 6 cifre', set2: 'Ripeti il PIN' };
-    el('#lockTitle').textContent = titles[mode];
+    el('#lockTitle').textContent = window.t(titles[mode]);
     el('#lockBio').classList.toggle('hidden', !(mode === 'unlock' && hasBio()));
     el('#lockCancel').classList.toggle('hidden', mode === 'unlock');
   }
-  function msg(t, bad) {
+  function msg(s, bad) {
     const m = el('#lockMsg');
-    m.textContent = t || '';
+    m.textContent = s ? window.t(s) : '';
     m.classList.toggle('bad', !!bad);
     if (bad) {
       el('#lockDots').classList.remove('shake');
@@ -64,7 +64,7 @@ const Lock = (() => {
       if (Date.now() < until) {
         pin = '';
         render();
-        return msg(`Troppi tentativi. Riprova tra ${Math.ceil((until - Date.now()) / 1000)} secondi`, true);
+        return msg(window.t('Troppi tentativi. Riprova tra {n} secondi', { n: Math.ceil((until - Date.now()) / 1000) }), true);
       }
       if ((await hashPin(pin, localStorage[K.salt])) === localStorage[K.hash]) {
         localStorage[K.fails] = 0;

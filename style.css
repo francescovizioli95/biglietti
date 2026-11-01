@@ -368,3 +368,11 @@ input.flash { background: rgba(91,155,255,.25); border-color: #7fb2ff; }
 .qr-view { background: radial-gradient(120% 80% at 100% 0%, #123a63, #061525 70%); }
 .cam-frame i { border-color: #7fb2ff; }
 .cam-count, .cam-pill.on { background: #7fb2ff; color: #061525; }
+
+/* Accesso riservato */
+html.gated body > *:not(#accessView):not(#toast) { visibility: hidden !important; }
+html.gated #accessView { display: flex !important; }
+.access .lock-msg { max-width: 300px; }
+.access-form { display: flex; flex-direction: column; gap: 14px; width: min(300px, 86vw); margin-top: 6px; }
+.access-form input { text-align: center; font: inherit; font-size: 22px; font-weight: 700; letter-spacing: 3px; padding: 14px; border-radius: 14px; border: 1px solid rgba(127,178,255,.35); background: rgba(255,255,255,.06); color: #fff; text-transform: uppercase; }
+.access-form input:focus { outline: none; border-color: #5b9bff; box-shadow: 0 0 0 3px rgba(91,155,255,.25); }

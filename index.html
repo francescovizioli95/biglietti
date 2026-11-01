@@ -10,7 +10,7 @@
   <link rel="icon" href="icons/icon-192.png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   <link rel="stylesheet" href="style.css">
-  <script>try { if (localStorage.lockHash) document.documentElement.classList.add('locked'); } catch (e) {}</script>
+  <script>try { if (!localStorage.accessOk) document.documentElement.classList.add('gated'); else if (localStorage.lockHash) document.documentElement.classList.add('locked'); } catch (e) {}</script>
 </head>
 <body>
   <header class="topbar">
@@ -31,8 +31,10 @@
     <button data-action="lockNow" id="menuLockNow" class="hidden">Blocca ora</button>
     <button data-action="exportAll">Esporta in rubrica telefono (vCard)</button>
     <button data-action="exportCsv">Esporta in Excel (CSV)</button>
+    <button data-action="shareContacts">Condividi contatti con un collega</button>
     <button data-action="backup">Salva backup completo</button>
-    <button data-action="restore">Importa file (backup o biglietti)</button>
+    <button data-action="restore">Importa file (backup, contatti o biglietti)</button>
+    <button data-action="lang">Lingua: English</button>
   </div>
 
   <!-- ============ RUBRICA ============ -->
@@ -113,6 +115,7 @@
     <dl id="detFields" class="fields"></dl>
     <div class="det-buttons">
       <button id="toContactsBtn" class="btn primary">Salva nella rubrica del telefono</button>
+      <button id="shareColleagueBtn" class="btn ghost">Condividi con un collega</button>
       <div class="row2">
         <button id="editBtn" class="btn ghost">Modifica</button>
         <button id="deleteBtn" class="btn danger">Elimina</button>
@@ -120,7 +123,7 @@
     </div>
   </main>
 
-  <!-- ============ IL MIO BIGLIETTO ============ -->
+  <!-- ============ I MIEI BIGLIETTI ============ -->
   <main id="meView" class="view hidden">
     <div id="meEmpty" class="me-intro hidden">
       <h2>Crea il tuo biglietto digitale</h2>
@@ -135,7 +138,7 @@
           <button id="shareCardBtn" class="btn ghost">Condividi</button>
           <button id="downloadCardBtn" class="btn ghost">Scarica immagine</button>
         </div>
-        <button id="editMeBtn" class="btn ghost">Modifica i miei dati</button>
+        <button id="editMeBtn" class="btn ghost">Modifica i dati</button>
       </div>
       <div class="templates-title">Stile</div>
       <div id="templates" class="templates"></div>
@@ -191,7 +194,7 @@
     </button>
     <button data-tab="me">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>
-      <span>Il mio biglietto</span>
+      <span>I miei biglietti</span>
     </button>
   </nav>
 
@@ -262,6 +265,19 @@
     </div>
   </div>
 
+  <!-- ============ ACCESSO RISERVATO ============ -->
+  <div id="accessView" class="lock access hidden">
+    <img src="icons/icon-192.png" alt="" class="lock-logo">
+    <div class="lock-title">Accesso riservato</div>
+    <div class="lock-msg">Inserisci il codice d'accesso che ti ha dato Francesco</div>
+    <form id="accessForm" class="access-form">
+      <input id="accessCode" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXXX-XXXXX" aria-label="Codice d'accesso">
+      <button type="submit" class="btn primary big">Entra</button>
+    </form>
+    <div id="accessMsg" class="lock-msg"></div>
+    <button id="accessLang" class="btn link">Lingua: English</button>
+  </div>
+
   <!-- ============ BLOCCO ============ -->
   <div id="lockView" class="lock hidden">
     <img src="icons/icon-192.png" alt="" class="lock-logo">
@@ -297,6 +313,8 @@
   <script src="parse.js"></script>
   <script src="profili.js"></script>
   <script src="db.js"></script>
+  <script src="i18n.js"></script>
+  <script src="access.js"></script>
   <script src="lock.js"></script>
   <script src="app.js"></script>
 </body>

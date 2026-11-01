@@ -18,11 +18,14 @@ const state = {
 
 /* =================== Utilità =================== */
 function toast(msg, ms = 2600) {
-  const t = $('#toast');
-  t.textContent = msg;
-  t.classList.remove('hidden');
+  const el = $('#toast');
+  el.textContent = t(msg);
+  el.classList.remove('hidden');
   clearTimeout(toast._t);
-  toast._t = setTimeout(() => t.classList.add('hidden'), ms);
+  toast._t = setTimeout(() => el.classList.add('hidden'), ms);
+}
+function ask(msg, vars) {
+  return confirm(t(msg, vars));
 }
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -200,7 +203,7 @@ function updateQueueBar(all, pct) {
   const n = updateQueueBar._n || 0;
   if (!n) return bar.classList.add('hidden');
   bar.classList.remove('hidden');
-  bar.innerHTML = `<div class="spinner small"></div><span>Sto leggendo ${n === 1 ? '1 biglietto' : n + ' biglietti'}${pct != null ? ' · ' + pct + '%' : ''}</span>`;
+  bar.innerHTML = `<div class="spinner small"></div><span>${n === 1 ? t('Sto leggendo 1 biglietto') : t('Sto leggendo {n} biglietti', { n })}${pct != null ? ' · ' + pct + '%' : ''}</span>`;
 }
 async function enqueue(imgs, extra = {}) {
   const card = {
@@ -213,16 +216,17 @@ async function enqueue(imgs, extra = {}) {
 }
 
 /* =================== Navigazione =================== */
-const TITLES = { list: 'Otharis Business Card', me: 'Il mio biglietto' };
+const TITLES = { list: 'Otharis Business Card', me: 'I miei biglietti' };
 function show(view, title) {
   state.view = view;
   for (const v of ['list', 'edit', 'detail', 'me']) $('#' + v + 'View').classList.toggle('hidden', v !== view);
   const top = view === 'list' || view === 'me';
   $('#tabbar').classList.toggle('hidden', !top);
   $('#backBtn').classList.toggle('hidden', top);
-  $('#menuBtn').classList.toggle('hidden', view !== 'list');
+  $('#menuBtn').classList.toggle('hidden', !top);
   $('#qrQuickBtn').classList.toggle('hidden', !top);
-  $('#title').textContent = title || TITLES[view] || 'Otharis Business Card';
+  state.title = title;
+  $('#title').textContent = t(title || TITLES[view] || 'Otharis Business Card');
   $('#menu').classList.add('hidden');
   $$('#tabbar [data-tab]').forEach((b) => b.classList.toggle('active', b.dataset.tab === view));
   if (view === 'list') renderList();
@@ -288,14 +292,14 @@ function renderChips() {
   const evs = renderEventList();
   const nReview = state.cards.filter((c) => c.status === 'review' || c.status === 'pending').length;
   const chips = [
-    ['all', 'Tutti (' + state.cards.length + ')'],
-    nReview ? ['review', 'Da controllare (' + nReview + ')'] : null,
+    ['all', t('Tutti') + ' (' + state.cards.length + ')'],
+    nReview ? ['review', t('Da controllare') + ' (' + nReview + ')'] : null,
     ...evs.map((e) => ['event:' + e, e]),
   ].filter(Boolean);
   if (state.filter !== 'all' && !chips.some((c) => c[0] === state.filter)) state.filter = 'all';
   $('#chips').innerHTML =
     chips.map(([k, l]) => `<button class="chip ${state.filter === k ? 'on' : ''}" data-k="${esc(k)}">${esc(l)}</button>`).join('') +
-    `<button class="chip sort" data-sort="1">${state.sort === 'az' ? 'A-Z' : 'Recenti'} ⇅</button>`;
+    `<button class="chip sort" data-sort="1">${state.sort === 'az' ? 'A-Z' : t('Recenti')} ⇅</button>`;
   $('#chips').classList.toggle('hidden', state.cards.length === 0);
 }
 $('#chips').onclick = (e) => {
@@ -319,11 +323,11 @@ function renderList() {
   items = sortCards(items);
   $('#list').innerHTML = items
     .map((c) => {
-      const title = c.name || c.company || (c.status === 'pending' ? 'Lettura in corso...' : 'Senza nome');
+      const title = c.name || c.company || t(c.status === 'pending' ? 'Lettura in corso...' : 'Senza nome');
       const sub = [c.role, c.name ? c.company : ''].filter(Boolean).join(' · ');
       const badge =
-        c.status === 'pending' ? '<span class="badge wait">in lettura</span>' :
-        c.status === 'review' ? '<span class="badge rev">da controllare</span>' : '';
+        c.status === 'pending' ? `<span class="badge wait">${t('in lettura')}</span>` :
+        c.status === 'review' ? `<span class="badge rev">${t('da controllare')}</span>` : '';
       return `<li data-id="${c.id}">
         <div class="thumb">${c.image ? `<img src="${c.image}" alt="" loading="lazy">` : `<span>${esc(initials(title))}</span>`}</div>
         <div class="info">
@@ -369,12 +373,12 @@ $('#galleryInput').onchange = async (e) => {
   const files = [...e.target.files];
   e.target.value = '';
   if (!files.length) return;
-  toast(files.length > 1 ? `Aggiungo ${files.length} biglietti...` : 'Preparo la foto...');
+  toast(files.length > 1 ? t('Aggiungo {n} biglietti...', { n: files.length }) : 'Preparo la foto...');
   let last;
   for (const f of files) last = await enqueue(await imagesFromFile(f), { event: '' });
   await refresh();
   if (files.length === 1) startEdit(last, 'Controlla i dati');
-  else toast(`${files.length} biglietti in lettura. Li trovi in "Da controllare".`, 3500);
+  else toast(t('{n} biglietti in lettura. Li trovi in "Da controllare".', { n: files.length }), 3500);
 };
 
 /* =================== Fotocamera live (scansione rapida) =================== */
@@ -389,7 +393,7 @@ async function startCam() {
   $('#camCount').textContent = '0';
   $('#camThumb').innerHTML = '';
   $('#camEvent').value = localStorage.lastEvent || '';
-  $('#camHint').textContent = 'Inquadra il biglietto nel riquadro';
+  $('#camHint').textContent = t('Inquadra il biglietto nel riquadro');
   try {
     camStream = await navigator.mediaDevices.getUserMedia({
       audio: false,
@@ -480,7 +484,7 @@ $('#camClose').onclick = async () => {
   } else if (shots > 1) {
     state.filter = 'review';
     renderList();
-    toast(`${shots} biglietti salvati. Li sto leggendo, poi controllali qui.`, 3500);
+    toast(t('{n} biglietti salvati. Li sto leggendo, poi controllali qui.', { n: shots }), 3500);
   }
 };
 document.addEventListener('visibilitychange', () => {
@@ -526,19 +530,19 @@ function startEdit(card, title) {
   $('#editBackImg').classList.toggle('hidden', !card.backImage);
   $('#rereadBtn').classList.toggle('hidden', !card.image);
   $('#backPhotoBtn').classList.toggle('hidden', !card.image);
-  $('#retakeBtn').textContent = card.image ? 'Rifai foto' : 'Aggiungi foto';
+  $('#retakeBtn').textContent = t(card.image ? 'Rifai foto' : 'Aggiungi foto');
   renderLines(card.ocrLines || []);
   $('#ocrStatus').classList.toggle('hidden', card.status !== 'pending');
   if (card.status === 'pending') setOcrText('In coda per la lettura...');
   checkDup();
   go('edit', title);
 }
-function setOcrText(t) {
-  $('#ocrText').textContent = t;
+function setOcrText(s) {
+  $('#ocrText').textContent = t(s);
 }
 function showOcrProgress(m) {
   $('#ocrStatus').classList.remove('hidden');
-  if (m.status === 'recognizing text') setOcrText('Leggo il biglietto... ' + Math.round(m.progress * 100) + '%');
+  if (m.status === 'recognizing text') setOcrText(t('Leggo il biglietto... {n}%', { n: Math.round(m.progress * 100) }));
   else if (/load|initializ/.test(m.status)) setOcrText('Preparo il lettore...');
 }
 function applyOcrToForm(f, lines, overwrite) {
@@ -564,7 +568,7 @@ async function ocrInEdit(src, overwrite) {
   } catch (e) {
     console.error(e);
     $('#ocrStatus').classList.add('hidden');
-    toast('Errore nella lettura: ' + (e.message || e), 4000);
+    toast(t('Errore nella lettura: ') + (e.message || e), 4000);
   }
 }
 function renderLines(lines) {
@@ -635,7 +639,7 @@ function checkDup() {
   const d = findDup({ id: state.draft && state.draft.id, name: f.name.value, email: f.email.value, phones: [f.phone.value, f.phone2.value] });
   const w = $('#dupWarn');
   w.classList.toggle('hidden', !d);
-  if (d) w.innerHTML = `Forse ce l'hai già: <b>${esc(d.name || d.company)}</b>${d.event ? ' (' + esc(d.event) + ')' : ''}`;
+  if (d) w.innerHTML = `${t('Forse ce l\'hai già:')} <b>${esc(d.name || d.company)}</b>${d.event ? ' (' + esc(d.event) + ')' : ''}`;
 }
 $('#form').onsubmit = async (e) => {
   e.preventDefault();
@@ -664,7 +668,7 @@ async function openDetail(id) {
   if (!c) return;
   state.current = c;
   renderDetail(c);
-  go('detail', c.name || c.company || 'Biglietto');
+  go('detail', c.name || c.company || t('Biglietto'));
 }
 const ICONS = {
   call: '<svg viewBox="0 0 24 24"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 005 5L15 13l5 2v4a2 2 0 01-2 2A16 16 0 013 6a2 2 0 012-2"/></svg>',
@@ -686,15 +690,15 @@ function renderDetail(c) {
   $('#detBackImg').src = c.backImage || '';
   $('#detBackImg').classList.toggle('hidden', !c.backImage);
   $('#detAvatar').textContent = initials(c.name || c.company);
-  $('#detName').textContent = c.name || c.company || 'Senza nome';
+  $('#detName').textContent = c.name || c.company || t('Senza nome');
   $('#detSub').textContent = [c.role, c.name ? c.company : ''].filter(Boolean).join(' · ');
   const p = (c.phones || [])[0];
   $('#detActions').innerHTML = [
-    p && `<a href="tel:${esc(p.replace(/[^\d+]/g, ''))}">${ICONS.call}<span>Chiama</span></a>`,
+    p && `<a href="tel:${esc(p.replace(/[^\d+]/g, ''))}">${ICONS.call}<span>${t('Chiama')}</span></a>`,
     p && `<a href="https://wa.me/${waNumber(p)}" target="_blank" rel="noopener">${ICONS.wa}<span>WhatsApp</span></a>`,
     c.email && `<a href="mailto:${esc(c.email)}">${ICONS.mail}<span>Email</span></a>`,
-    c.website && `<a href="${esc(linkify(c.website))}" target="_blank" rel="noopener">${ICONS.web}<span>Sito</span></a>`,
-    c.address && `<a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(c.address)}" target="_blank" rel="noopener">${ICONS.map}<span>Mappa</span></a>`,
+    c.website && `<a href="${esc(linkify(c.website))}" target="_blank" rel="noopener">${ICONS.web}<span>${t('Sito')}</span></a>`,
+    c.address && `<a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(c.address)}" target="_blank" rel="noopener">${ICONS.map}<span>${t('Mappa')}</span></a>`,
   ].filter(Boolean).join('');
   const rows = [
     ['Telefono', (c.phones || []).map((x) => `<a href="tel:${esc(x.replace(/[^\d+]/g, ''))}">${esc(x)}</a>`).join('<br>')],
@@ -703,9 +707,9 @@ function renderDetail(c) {
     ['Indirizzo', esc(c.address)],
     ['Evento', esc(c.event)],
     ['Note', esc(c.notes).replace(/\n/g, '<br>')],
-    ['Aggiunto il', new Date(c.created || Date.now()).toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' })],
+    ['Aggiunto il', new Date(c.created || Date.now()).toLocaleDateString(LANG === 'en' ? 'en-GB' : 'it-IT', { day: 'numeric', month: 'long', year: 'numeric' })],
   ].filter((r) => r[1]);
-  $('#detFields').innerHTML = rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('');
+  $('#detFields').innerHTML = rows.map(([k, v]) => `<dt>${t(k)}</dt><dd>${v}</dd>`).join('');
 }
 $('#detImg').onclick = () => $('#detImg').classList.toggle('zoom');
 $('#detBackImg').onclick = () => $('#detBackImg').classList.toggle('zoom');
@@ -715,13 +719,20 @@ $('#editBtn').onclick = () => {
   setTimeout(() => startEdit(c, 'Modifica'), 60);
 };
 $('#deleteBtn').onclick = async () => {
-  if (!confirm('Eliminare questo biglietto?')) return;
+  if (!ask('Eliminare questo biglietto?')) return;
   await DB.del(state.current.id);
   await refresh();
   toast('Eliminato');
   history.back();
 };
 $('#toContactsBtn').onclick = () => shareFiles([vcfFile([state.current], (state.current.name || 'contatto') + '.vcf')], 'Aprilo per salvarlo nei Contatti');
+$('#shareColleagueBtn').onclick = () => shareContacts([state.current], state.current.name || state.current.company || 'contatto');
+// File da passare a un collega: lo apre in app con "Importa file"
+function shareContacts(cards, label) {
+  const name = 'contatti-' + String(label).replace(/[^\w-]+/g, '_') + '.json';
+  const f = new File([JSON.stringify({ app: 'biglietti', version: 1, kind: 'contacts', date: new Date().toISOString(), cards })], name, { type: 'application/json' });
+  shareFiles([f], 'Il collega lo apre in Otharis Business Card con "Importa file"');
+}
 
 /* =================== vCard =================== */
 const vEsc = (s) => String(s || '').replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/([,;])/g, '\\$1');
@@ -739,7 +750,7 @@ function toVCard(c) {
   if (c.email) L.push(`EMAIL;TYPE=INTERNET:${c.email}`);
   if (c.website) L.push(`URL:${vEsc(c.website)}`);
   if (c.address) L.push(`ADR;TYPE=WORK:;;${vEsc(c.address)};;;;`);
-  const note = [c.event && 'Conosciuto a: ' + c.event, c.notes].filter(Boolean).join('\n');
+  const note = [c.event && t('Conosciuto a: ') + c.event, c.notes].filter(Boolean).join('\n');
   if (note) L.push(`NOTE:${vEsc(note)}`);
   if (c.image && c.image.startsWith('data:image/jpeg;base64,')) L.push('PHOTO;ENCODING=b;TYPE=JPEG:' + c.image.split(',')[1]);
   L.push('END:VCARD');
@@ -758,7 +769,7 @@ async function shareFiles(files, hint, text) {
     }
   }
   files.forEach((f) => download(f));
-  if (hint) toast('File scaricato. ' + hint, 4000);
+  if (hint) toast(t('File scaricato. ') + t(hint), 4000);
 }
 function download(blob, name) {
   const a = document.createElement('a');
@@ -780,6 +791,7 @@ document.addEventListener('click', (e) => {
 $('#menu').onclick = async (e) => {
   const a = e.target.dataset.action;
   $('#menu').classList.add('hidden');
+  if (a === 'lang') return setLang(LANG === 'it' ? 'en' : 'it'), rerender();
   const cards = (await DB.all()).filter((c) => c.status !== 'pending');
   const visible = state.filter.startsWith('event:') ? cards.filter((c) => c.event === state.filter.slice(6)) : cards;
   const tag = state.filter.startsWith('event:') ? '-' + state.filter.slice(6).replace(/\W+/g, '_') : '';
@@ -789,11 +801,11 @@ $('#menu').onclick = async (e) => {
       const ok = await Lock.setPin();
       if (!ok) return;
       if (await Lock.bioAvailable()) {
-        if (confirm('Vuoi sbloccare anche con l\'impronta digitale?')) {
+        if (ask('Vuoi sbloccare anche con l\'impronta digitale?')) {
           try { await Lock.enableBio(); toast('PIN e impronta attivi'); } catch { toast('PIN attivo (impronta non attivata)'); }
         } else toast('PIN attivo');
       } else toast('PIN attivo');
-    } else if (confirm('Vuoi togliere il blocco con PIN?')) {
+    } else if (ask('Vuoi togliere il blocco con PIN?')) {
       Lock.disable();
       toast('Blocco disattivato');
     }
@@ -807,12 +819,15 @@ $('#menu').onclick = async (e) => {
     toast('Backup salvato nei Download. Conservalo su Drive!', 3500);
   } else if (a === 'restore') {
     $('#restoreInput').click();
+  } else if (a === 'shareContacts') {
+    if (!visible.length) return toast('Nessun biglietto');
+    shareContacts(visible, 'otharis' + tag + '-' + today);
   } else if (a === 'exportAll') {
     if (!visible.length) return toast('Nessun biglietto');
     shareFiles([vcfFile(visible, `biglietti${tag}.vcf`)], 'Aprilo per importarli nei Contatti');
   } else if (a === 'exportCsv') {
     if (!visible.length) return toast('Nessun biglietto');
-    const cols = [['Nome', 'name'], ['Azienda', 'company'], ['Ruolo', 'role'], ['Telefono', (c) => (c.phones || [])[0]], ['Altro telefono', (c) => (c.phones || [])[1]], ['Email', 'email'], ['Sito', 'website'], ['Indirizzo', 'address'], ['Evento', 'event'], ['Note', 'notes'], ['Data', (c) => new Date(c.created).toLocaleDateString('it-IT')]];
+    const cols = [['Nome', 'name'], ['Azienda', 'company'], ['Ruolo', 'role'], ['Telefono', (c) => (c.phones || [])[0]], ['Altro telefono', (c) => (c.phones || [])[1]], ['Email', 'email'], ['Sito', 'website'], ['Indirizzo', 'address'], ['Evento', 'event'], ['Note', 'notes'], ['Data', (c) => new Date(c.created).toLocaleDateString(LANG === 'en' ? 'en-GB' : 'it-IT')]].map(([h, k]) => [h === 'Nome' ? t('Nome e cognome') : t(h), k]);
     const q = (v) => '"' + String(v ?? '').replace(/"/g, '""') + '"';
     const rows = [cols.map((c) => q(c[0])).join(';'), ...visible.map((c) => cols.map(([, k]) => q(typeof k === 'function' ? k(c) : c[k])).join(';'))];
     shareFiles([new File(['\ufeff' + rows.join('\r\n')], `biglietti${tag}-${today}.csv`, { type: 'text/csv' })], 'Aprilo con Excel o Fogli Google');
@@ -830,8 +845,8 @@ $('#restoreInput').onchange = async (e) => {
     for (const c of cards) if (c && c.id) await DB.put(c);
     const np = importProfiles(profiles);
     await refresh();
-    const parts = [cards.length && `${cards.length} contatti`, np && (np === 1 ? '1 biglietto personale' : `${np} biglietti personali`)].filter(Boolean);
-    toast('Importati ' + parts.join(' e '), 3500);
+    const parts = [cards.length && (cards.length === 1 ? t('1 contatto') : t('{n} contatti', { n: cards.length })), np && (np === 1 ? t('1 biglietto personale') : t('{n} biglietti personali', { n: np }))].filter(Boolean);
+    toast(t('Importati {x}', { x: parts.join(t(' e ')) }), 3500);
     if (np) setTimeout(() => $$('#tabbar [data-tab="me"]')[0].click(), 300);
   } catch {
     toast('File di backup non valido');
@@ -851,12 +866,6 @@ const DEFAULT_TPL = 'universe';
 // Più biglietti personali (es. il tuo e quello del socio)
 function getProfiles() {
   try {
-    if (!localStorage.defaultsSeeded && typeof DEFAULT_PROFILES !== 'undefined') {
-      localStorage.defaultsSeeded = '1';
-      const cur = JSON.parse(localStorage.profiles || '[]');
-      for (const d of DEFAULT_PROFILES) if (!cur.some((p) => (p.email || '').toLowerCase() === d.email)) cur.push({ ...d });
-      localStorage.profiles = JSON.stringify(cur);
-    }
     if (!localStorage.profiles && localStorage.me) {
       const old = JSON.parse(localStorage.me);
       if (old) old.tpl = old.tpl || localStorage.meTpl || DEFAULT_TPL;
@@ -1036,7 +1045,7 @@ async function drawCard(canvas, me, tplKey) {
   ctx.fillStyle = t.sub;
   ctx.font = F(600, 14);
   ctx.textBaseline = 'alphabetic';
-  const cap = 'INQUADRA PER SALVARE';
+  const cap = window.t('INQUADRA PER SALVARE');
   let cw = 0;
   for (const ch of cap) cw += ctx.measureText(ch).width + 2.6;
   spaced(cap, qx + (qrBox - cw) / 2, qy + qrBox + 36, 2.6);
@@ -1143,7 +1152,7 @@ async function drawCard(canvas, me, tplKey) {
 function renderTemplates() {
   const cur = (getMe() || {}).tpl || DEFAULT_TPL;
   $('#templates').innerHTML = Object.entries(TEMPLATES)
-    .map(([k, t]) => `<button class="tpl ${k === cur ? 'on' : ''}" data-k="${k}" style="background:linear-gradient(135deg,${t.bg[0]},${t.bg[1]});color:${t.text}"><i style="background:${t.accent}"></i>${t.name}</button>`)
+    .map(([k, tp]) => `<button class="tpl ${k === cur ? 'on' : ''}" data-k="${k}" style="background:linear-gradient(135deg,${tp.bg[0]},${tp.bg[1]});color:${tp.text}"><i style="background:${tp.accent}"></i>${t(tp.name)}</button>`)
     .join('');
 }
 $('#templates').onclick = (e) => {
@@ -1170,8 +1179,8 @@ function renderMe() {
   const list = getProfiles();
   const cur = profileIdx();
   $('#profileTabs').innerHTML = list.length
-    ? list.map((p, i) => `<button class="chip ${i === cur ? 'on' : ''}" data-i="${i}">${esc(p.firstName || 'Biglietto')}</button>`).join('') +
-      '<button class="chip add" data-new="1">+ Nuovo</button>'
+    ? list.map((p, i) => `<button class="chip ${i === cur ? 'on' : ''}" data-i="${i}">${esc(p.firstName || t('Biglietto'))}</button>`).join('') +
+      `<button class="chip add" data-new="1">${t('+ Nuovo')}</button>`
     : '';
 }
 $('#profileTabs').onclick = (e) => {
@@ -1201,7 +1210,7 @@ function fillMeForm(me) {
 function renderImgPrev() {
   for (const k of ['logo', 'photo']) {
     const box = $(`.img-pick[data-k="${k}"]`);
-    box.querySelector('.logo-prev').innerHTML = meImgs[k] ? `<img src="${meImgs[k]}" alt="">` : k === 'logo' ? 'Logo' : 'Foto';
+    box.querySelector('.logo-prev').innerHTML = meImgs[k] ? `<img src="${meImgs[k]}" alt="">` : t(k === 'logo' ? 'Logo' : 'Foto');
     box.querySelector('.del').classList.toggle('hidden', !meImgs[k]);
   }
 }
@@ -1214,7 +1223,7 @@ $('#editMeBtn').onclick = () => {
 };
 $('#meDelete').onclick = () => {
   const me = getMe();
-  if (!me || !confirm(`Eliminare il biglietto di ${meFullName(me)}?`)) return;
+  if (!me || !ask('Eliminare il biglietto di {name}?', { name: meFullName(me) })) return;
   const list = getProfiles();
   list.splice(profileIdx(), 1);
   setProfiles(list);
@@ -1304,7 +1313,7 @@ $('#showQrBtn').onclick = showMyQr;
 $('#qrClose').onclick = () => history.back();
 
 function updateLockMenu() {
-  $('#menuLock').textContent = Lock.enabled() ? 'Togli il PIN' : 'Proteggi con PIN';
+  $('#menuLock').textContent = t(Lock.enabled() ? 'Togli il PIN' : 'Proteggi con PIN');
   $('#menuLockNow').classList.toggle('hidden', !Lock.enabled());
 }
 
@@ -1330,7 +1339,19 @@ $('#installBtn').onclick = async () => {
 $('#installClose').onclick = () => $('#installBar').classList.add('hidden');
 
 /* =================== Avvio =================== */
+// Ridisegna tutto dopo il cambio lingua
+function rerender() {
+  updateLockMenu();
+  $('#title').textContent = t(state.title || TITLES[state.view] || 'Otharis Business Card');
+  if (state.view === 'list') renderList();
+  if (state.view === 'me') renderMe();
+  if (state.view === 'detail' && state.current) renderDetail(state.current);
+}
+
 (async function init() {
+  applyI18n();
+  const seed = await Access.ready(); // biglietti di Francesco e Renzo, cifrati
+  if (seed && seed.profiles) importProfiles(seed.profiles);
   Lock.init();
   updateLockMenu();
   if (!Lock.enabled() && !localStorage.lockAsked) {
