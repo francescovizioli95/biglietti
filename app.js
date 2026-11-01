@@ -213,7 +213,7 @@ async function enqueue(imgs, extra = {}) {
 }
 
 /* =================== Navigazione =================== */
-const TITLES = { list: 'Biglietti', me: 'Il mio biglietto' };
+const TITLES = { list: 'Otharis Business Card', me: 'Il mio biglietto' };
 function show(view, title) {
   state.view = view;
   for (const v of ['list', 'edit', 'detail', 'me']) $('#' + v + 'View').classList.toggle('hidden', v !== view);
@@ -222,7 +222,7 @@ function show(view, title) {
   $('#backBtn').classList.toggle('hidden', top);
   $('#menuBtn').classList.toggle('hidden', view !== 'list');
   $('#qrQuickBtn').classList.toggle('hidden', !top);
-  $('#title').textContent = title || TITLES[view] || 'Biglietti';
+  $('#title').textContent = title || TITLES[view] || 'Otharis Business Card';
   $('#menu').classList.add('hidden');
   $$('#tabbar [data-tab]').forEach((b) => b.classList.toggle('active', b.dataset.tab === view));
   if (view === 'list') renderList();

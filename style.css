@@ -1,13 +1,13 @@
 :root {
-  --bg: #f4f6fa;
-  --card: #ffffff;
-  --ink: #0f172a;
-  --muted: #64748b;
-  --line: #e5e9f0;
-  --brand: #0f1b2d;
-  --brand2: #1f3a5f;
-  --accent: #2563eb;
-  --gold: #d4af37;
+  --bg: #050f1d;
+  --card: rgba(18, 44, 78, .55);
+  --ink: #e8eef8;
+  --muted: #8fa6c4;
+  --line: rgba(127, 178, 255, .16);
+  --brand: #0b2a52;
+  --brand2: #1d56c2;
+  --accent: #5b9bff;
+  --gold: #7fb2ff;
   --ok: #16a34a;
   --warn: #d97706;
   --danger: #dc2626;
@@ -315,3 +315,56 @@ html.locked #lockView { display: flex !important; }
 .install-bar small { color: #9fb6d3; }
 .install-bar .btn.primary { background: linear-gradient(135deg, #2a5fd0, #7fb2ff); }
 .install-x { background: none; border: 0; color: #9fb6d3; font-size: 26px; padding: 0 4px; }
+
+/* ================= Tema Otharis (blu notte, blu elettrico, acciaio) ================= */
+html { background: #050f1d; color-scheme: dark; }
+body { background: radial-gradient(130% 70% at 100% 0%, #0f2f5a 0%, #071a33 40%, #050f1d 75%) fixed; }
+.topbar { background: rgba(5, 15, 29, .82); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border-bottom: 1px solid var(--line); box-shadow: none; }
+.topbar h1 { background: linear-gradient(180deg, #ffffff, #b9c7da); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.menu { background: #0b1f3a; border: 1px solid var(--line); }
+.menu button:active, .menu button:hover { background: rgba(91,155,255,.12); }
+#search { background: rgba(18,44,78,.55); color: var(--ink); }
+#search::placeholder { color: var(--muted); }
+.chip { background: rgba(18,44,78,.55); color: #c9d6e8; }
+.chip.on { background: linear-gradient(135deg, #1d56c2, #5b9bff); border-color: transparent; color: #fff; box-shadow: 0 4px 14px rgba(29,86,194,.45); }
+.queue-bar { background: rgba(29,86,194,.18); color: #bcd4ff; border: 1px solid var(--line); }
+.list li, .fields, .quick a, .lines-box, .sheet-btn, .img-pick { border: 1px solid var(--line); box-shadow: 0 6px 20px rgba(0,0,0,.25); backdrop-filter: blur(6px); }
+.info .s.m { color: #b9c7da; }
+.thumb { background: linear-gradient(135deg, #0b2a52, #1d56c2); }
+.badge.wait { background: rgba(91,155,255,.18); color: #9cc2ff; }
+.badge.rev { background: rgba(245,190,90,.16); color: #f5c76a; }
+.empty-ico { background: rgba(91,155,255,.12); color: #7fb2ff; }
+.btn.primary { background: linear-gradient(135deg, #1d56c2, #4f8fff); box-shadow: 0 8px 24px rgba(29,86,194,.45); }
+.btn.ghost { background: rgba(18,44,78,.55); color: var(--ink); }
+.btn.danger { background: rgba(220,38,38,.1); color: #fca5a5; border: 1px solid rgba(252,165,165,.3); }
+.tabbar { background: rgba(5,15,29,.88); border-top: 1px solid var(--line); }
+.tabbar [data-tab] { color: #7f93ae; }
+.tabbar [data-tab].active { color: #9cc2ff; }
+.fab { background: linear-gradient(145deg, #dfe7f2 0%, #8fa3bd 45%, #1d56c2 100%); border-color: #050f1d; color: #061525; box-shadow: 0 8px 26px rgba(29,86,194,.6); }
+.sheet { background: rgba(2,8,18,.6); }
+.sheet-inner { background: #0a1d37; border-top: 1px solid var(--line); }
+.sheet-btn { background: rgba(18,44,78,.55); }
+.sheet-btn svg { color: #7fb2ff; }
+.sheet-btn.main { background: linear-gradient(135deg, #1d56c2, #4f8fff); }
+.assign-grid button { background: rgba(18,44,78,.55); }
+.assign-grid button:active, .line:active { background: #1d56c2; }
+.line { background: rgba(18,44,78,.55); }
+.lines-box { border-style: dashed; }
+input:not([type=search]), textarea { background: rgba(10,29,55,.8); color: var(--ink); }
+input::placeholder, textarea::placeholder { color: #5f7593; }
+input.flash { background: rgba(91,155,255,.25); border-color: #7fb2ff; }
+.form-actions { background: linear-gradient(rgba(5,15,29,0), #050f1d 35%); }
+.dup-warn { background: rgba(245,190,90,.14); color: #f5c76a; }
+.photo-box, .det-img { background: #020812; }
+.quick a { color: #9cc2ff; }
+.quick a:active { background: rgba(91,155,255,.18); }
+.fields a { color: #7fb2ff; }
+.avatar { background: linear-gradient(135deg, #1d56c2, #5b9bff); }
+.tpl.on { box-shadow: 0 0 0 2px #050f1d inset; }
+.logo-prev { background: rgba(10,29,55,.8); border-color: rgba(127,178,255,.3); }
+.profile-tabs .chip.add { color: #9cc2ff; }
+.toast { background: #e8eef8; color: #061525; }
+.spinner.small { border-color: rgba(156,194,255,.25); border-top-color: #9cc2ff; }
+.qr-view { background: radial-gradient(120% 80% at 100% 0%, #123a63, #061525 70%); }
+.cam-frame i { border-color: #7fb2ff; }
+.cam-count, .cam-pill.on { background: #7fb2ff; color: #061525; }
