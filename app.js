@@ -821,13 +821,14 @@ $('#restoreInput').onchange = async (e) => {
 
 /* =================== Il mio biglietto =================== */
 const TEMPLATES = {
-  navy:    { name: 'Blu notte',   bg: ['#0f1b2d', '#1f3a5f'], text: '#ffffff', sub: '#c9d4e3', accent: '#d4af37' },
-  black:   { name: 'Nero e oro',  bg: ['#0b0b0c', '#26231d'], text: '#f5e6c4', sub: '#bfb59e', accent: '#c9a54a' },
-  white:   { name: 'Bianco',      bg: ['#ffffff', '#f2f4f7'], text: '#111827', sub: '#4b5563', accent: '#1f6feb' },
-  emerald: { name: 'Smeraldo',    bg: ['#063b2f', '#0d6b55'], text: '#ffffff', sub: '#cde7df', accent: '#f2c46d' },
-  wine:    { name: 'Bordeaux',    bg: ['#3d0b16', '#6e1a2c'], text: '#ffffff', sub: '#ecd2d8', accent: '#e7c27d' },
-  graphite:{ name: 'Grafite',     bg: ['#1c1f24', '#3a3f47'], text: '#ffffff', sub: '#cfd3da', accent: '#4fd1c5' },
+  universe: { name: 'Universo', bg: ['#061525', '#123a63'], text: '#ffffff', sub: '#9fb6d3', accent: '#7fb2ff', accent2: '#2a5fd0', stars: true, qrInk: '#061525' },
+  navy:     { name: 'Blu notte', bg: ['#0f1b2d', '#1f3a5f'], text: '#ffffff', sub: '#c9d4e3', accent: '#d4af37', accent2: '#b8912a', qrInk: '#0f1b2d' },
+  black:    { name: 'Nero e oro', bg: ['#0b0b0c', '#2a261e'], text: '#f5e6c4', sub: '#bfb59e', accent: '#c9a54a', accent2: '#8a6d24' },
+  white:    { name: 'Bianco', bg: ['#ffffff', '#e9eef6'], text: '#0f172a', sub: '#4b5563', accent: '#1f6feb', accent2: '#0b3d91' },
+  emerald:  { name: 'Smeraldo', bg: ['#052e25', '#0d6b55'], text: '#ffffff', sub: '#cde7df', accent: '#f2c46d', accent2: '#b8912a', qrInk: '#052e25' },
+  wine:     { name: 'Bordeaux', bg: ['#2e0810', '#6e1a2c'], text: '#ffffff', sub: '#ecd2d8', accent: '#e7c27d', accent2: '#a5813e', qrInk: '#2e0810' },
 };
+const DEFAULT_TPL = 'universe';
 function getMe() {
   try { return JSON.parse(localStorage.me || 'null'); } catch { return null; }
 }
@@ -884,119 +885,185 @@ function fitText(ctx, text, maxW, size, weight) {
   } while (s > 14);
   return s;
 }
-let logoImgCache = { src: null, img: null };
+const imgCache = {};
+async function cachedImg(src) {
+  if (!imgCache[src]) imgCache[src] = await loadImage(src);
+  return imgCache[src];
+}
+function seeded(seed) {
+  return () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+}
+const ICON_PATHS = {
+  mobile: 'M8 3h8a1 1 0 011 1v16a1 1 0 01-1 1H8a1 1 0 01-1-1V4a1 1 0 011-1zM11 18h2',
+  phone: 'M5 4h4l2 5-2.5 1.5a11 11 0 005 5L15 13l5 2v4a2 2 0 01-2 2A16 16 0 013 6a2 2 0 012-2',
+  mail: 'M5 5h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2zM3 7l9 6 9-6',
+  web: 'M12 3a9 9 0 110 18 9 9 0 010-18zM3 12h18M12 3a14 14 0 010 18M12 3a14 14 0 000 18',
+  in: 'M4 4h16v16H4zM8 10v6M8 7.5v.01M12 16v-6M12 13a2 2 0 014 0v3',
+};
+function drawIcon(ctx, key, x, y, size, color) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(size / 24, size / 24);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.8;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.stroke(new Path2D(ICON_PATHS[key]));
+  ctx.restore();
+}
 async function drawCard(canvas, me, tplKey) {
-  const t = TEMPLATES[tplKey] || TEMPLATES.navy;
+  const t = TEMPLATES[tplKey] || TEMPLATES[DEFAULT_TPL];
+  await document.fonts.load(`800 40px Manrope`).catch(() => {});
+  await document.fonts.load(`500 20px Manrope`).catch(() => {});
   const W = canvas.width, H = canvas.height;
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, W, H);
-  // sfondo
-  const g = ctx.createLinearGradient(0, 0, W, H);
-  g.addColorStop(0, t.bg[0]);
-  g.addColorStop(1, t.bg[1]);
   ctx.save();
-  roundRect(ctx, 0, 0, W, H, 34);
+  roundRect(ctx, 0, 0, W, H, 30);
   ctx.clip();
+  // sfondo
+  const g = ctx.createRadialGradient(W, 0, 0, W, 0, W * 1.2);
+  g.addColorStop(0, t.bg[1]);
+  g.addColorStop(0.75, t.bg[0]);
+  g.addColorStop(1, t.bg[0]);
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, W, H);
-  // decoro discreto
-  ctx.globalAlpha = 0.07;
-  ctx.fillStyle = t.accent;
-  ctx.beginPath();
-  ctx.arc(W - 40, -60, 330, 0, Math.PI * 2);
-  ctx.fill();
+  if (t.stars) {
+    const rnd = seeded(7);
+    for (let i = 0; i < 160; i++) {
+      ctx.fillStyle = `rgba(180,210,255,${(rnd() * 0.35 + 0.05).toFixed(2)})`;
+      ctx.beginPath();
+      ctx.arc(rnd() * W, rnd() * H, rnd() * 1.3 + 0.2, 0, 7);
+      ctx.fill();
+    }
+  }
+  ctx.strokeStyle = t.accent;
+  ctx.globalAlpha = 0.09;
+  ctx.lineWidth = 1.3;
+  for (const r of [260, 340, 420]) { ctx.beginPath(); ctx.arc(W, 0, r, 0, 7); ctx.stroke(); }
   ctx.globalAlpha = 1;
-  ctx.fillStyle = t.accent;
-  ctx.fillRect(0, H - 14, W, 14);
+  const bar = ctx.createLinearGradient(0, 0, W, 0);
+  bar.addColorStop(0, t.accent2 || t.accent);
+  bar.addColorStop(0.5, t.accent);
+  bar.addColorStop(1, t.accent2 || t.accent);
+  ctx.fillStyle = bar;
+  ctx.fillRect(0, H - 7, W, 7);
 
-  const P = 70;
-  const qrSize = 300, qrPad = 20;
-  const qx = W - P - qrSize - qrPad * 2 + 10, qy = (H - qrSize - qrPad * 2) / 2 - 4;
-  const textMax = qx - P - 40;
-
-  let y = P;
-  // logo
-  if (me.logo) {
-    if (logoImgCache.src !== me.logo) logoImgCache = { src: me.logo, img: await loadImage(me.logo) };
-    const img = logoImgCache.img;
-    const lh = 92, lw = Math.min(260, (img.width / img.height) * lh);
-    ctx.save();
-    roundRect(ctx, P, y, lw, lh, 14);
-    ctx.clip();
-    ctx.drawImage(img, P, y, lw, lh);
-    ctx.restore();
-    y += lh + 34;
-  } else if (me.company) {
-    ctx.fillStyle = t.accent;
-    const s = fitText(ctx, me.company.toUpperCase(), textMax, 26, 700);
-    ctx.font = `700 ${s}px ${FONT}`;
-    ctx.textBaseline = 'top';
-    ctx.fillText(me.company.toUpperCase(), P, y + 6);
-    y += 74;
-  } else y += 40;
-
+  const P = 64;
+  const F = (w, s) => `${w} ${s}px Manrope, ${FONT}`;
+  const spaced = (txt, x, y, spacing) => {
+    for (const ch of txt) { ctx.fillText(ch, x, y); x += ctx.measureText(ch).width + spacing; }
+    return x;
+  };
+  // QR a destra
+  const qrBox = 270, qrPad = 18;
+  const qx = W - P - qrBox, qy = 150;
+  ctx.fillStyle = '#ffffff';
+  ctx.shadowColor = 'rgba(0,0,0,.35)';
+  ctx.shadowBlur = 30;
+  ctx.shadowOffsetY = 12;
+  roundRect(ctx, qx, qy, qrBox, qrBox, 22);
+  ctx.fill();
+  ctx.shadowColor = 'transparent';
+  drawQr(ctx, makeQr(meVCard(me)), qx + qrPad, qy + qrPad, qrBox - qrPad * 2, t.qrInk || '#0b0b0c');
+  ctx.fillStyle = t.sub;
+  ctx.font = F(600, 14);
   ctx.textBaseline = 'alphabetic';
-  // nome
-  const name = meFullName(me);
-  ctx.fillStyle = t.text;
-  let s = fitText(ctx, name, textMax, 62, 800);
-  ctx.font = `800 ${s}px ${FONT}`;
-  y += s;
-  ctx.fillText(name, P, y);
-  // ruolo
-  const roleLine = [me.role, me.logo ? me.company : ''].filter(Boolean).join(' · ');
-  if (roleLine) {
-    ctx.fillStyle = t.accent;
-    s = fitText(ctx, roleLine, textMax, 30, 600);
-    ctx.font = `600 ${s}px ${FONT}`;
-    y += 48;
-    ctx.fillText(roleLine, P, y);
+  const cap = 'INQUADRA PER SALVARE';
+  let cw = 0;
+  for (const ch of cap) cw += ctx.measureText(ch).width + 2.6;
+  spaced(cap, qx + (qrBox - cw) / 2, qy + qrBox + 36, 2.6);
+
+  const leftMax = qx - P - 40;
+  // intestazione: logo o nome azienda
+  if (me.logo) {
+    const img = await cachedImg(me.logo);
+    const lh = 62, lw = Math.min(320, (img.width / img.height) * lh);
+    ctx.drawImage(img, P - 4, 48, lw, lh);
+  } else if (me.company) {
+    ctx.fillStyle = t.text;
+    ctx.font = F(700, 22);
+    spaced(me.company.toUpperCase(), P, 80, 9);
   }
   if (me.tagline) {
-    ctx.fillStyle = t.sub;
-    s = fitText(ctx, me.tagline, textMax, 24, 400);
-    ctx.font = `italic 400 ${s}px ${FONT}`;
-    y += 38;
-    ctx.fillText(me.tagline, P, y);
+    ctx.fillStyle = t.accent;
+    ctx.globalAlpha = 0.8;
+    ctx.font = F(500, 12.5);
+    spaced(me.tagline.toUpperCase().slice(0, 48), P, H - 36, 3.4);
+    ctx.globalAlpha = 1;
   }
-  // contatti, allineati in basso
+  // foto + nome
+  let tx = P, ty = 210;
+  if (me.photo) {
+    const img = await cachedImg(me.photo);
+    const cx = P + 88, cy = 238, R = 88;
+    const ring = ctx.createLinearGradient(cx - R, cy - R, cx + R, cy + R);
+    ring.addColorStop(0, t.accent);
+    ring.addColorStop(1, t.accent2 || t.accent);
+    ctx.fillStyle = ring;
+    ctx.beginPath(); ctx.arc(cx, cy, R, 0, 7); ctx.fill();
+    ctx.save();
+    ctx.beginPath(); ctx.arc(cx, cy, R - 4, 0, 7); ctx.clip();
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(cx - R, cy - R, R * 2, R * 2);
+    const s = Math.max((R * 2) / img.width, (R * 2) / img.height);
+    ctx.drawImage(img, cx - (img.width * s) / 2, cy - (img.height * s) / 2, img.width * s, img.height * s);
+    ctx.restore();
+    tx = P + 212;
+    ty = 200;
+  }
+  const nameMax = leftMax - (tx - P);
+  ctx.fillStyle = t.text;
+  const first = me.firstName || '', last = me.lastName || '';
+  let ns = 46;
+  ctx.font = F(800, ns);
+  const twoLines = me.photo || ctx.measureText(first + ' ' + last).width > nameMax;
+  const lines = twoLines && last ? [first, last] : [[first, last].filter(Boolean).join(' ')];
+  while (ns > 24 && lines.some((l) => (ctx.font = F(800, ns), ctx.measureText(l).width > nameMax))) ns -= 2;
+  ctx.font = F(800, ns);
+  let y = ty + ns;
+  for (const l of lines) { ctx.fillText(l, tx, y); y += ns * 1.05; }
+  y -= ns * 1.05;
+  y += 26;
+  if (me.role) {
+    ctx.fillStyle = t.accent;
+    let rs = 17;
+    ctx.font = F(700, rs);
+    while (rs > 11 && ctx.measureText(me.role.toUpperCase()).width + me.role.length * 4 > nameMax) ctx.font = F(700, --rs);
+    spaced(me.role.toUpperCase(), tx, y + 18, 4);
+    y += 22;
+  }
+  // linea
+  const lg = ctx.createLinearGradient(P, 0, P + 600, 0);
+  lg.addColorStop(0, t.accent);
+  lg.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.globalAlpha = 0.6;
+  ctx.fillStyle = lg;
+  ctx.fillRect(P, 380, Math.min(600, leftMax), 1.2);
+  ctx.globalAlpha = 1;
+  // contatti
   const contacts = [
-    me.mobile && ['T', me.mobile],
-    me.phone && ['U', me.phone],
-    me.email && ['@', me.email],
-    me.website && ['W', me.website.replace(/^https?:\/\//, '')],
+    me.mobile && ['mobile', me.mobile],
+    me.phone && ['phone', me.phone],
+    me.email && ['mail', me.email],
+    me.website && ['web', me.website.replace(/^https?:\/\//, '').replace(/\/$/, '')],
     me.linkedin && ['in', me.linkedin.replace(/^https?:\/\/(www\.)?/, '')],
   ].filter(Boolean).slice(0, 4);
-  const lineH = 44;
-  let cy = H - P - 6 - (contacts.length - 1) * lineH;
-  ctx.fillStyle = t.accent;
-  ctx.globalAlpha = 0.9;
-  ctx.fillRect(P, cy - 50, 64, 4);
-  ctx.globalAlpha = 1;
+  const lineH = contacts.length > 3 ? 40 : 46;
+  let cy = 432;
   for (const [ico, val] of contacts) {
-    ctx.fillStyle = t.accent;
-    ctx.font = `700 22px ${FONT}`;
-    ctx.fillText(ico, P, cy);
+    drawIcon(ctx, ico, P, cy - 21, 25, t.accent);
     ctx.fillStyle = t.text;
-    const fs = fitText(ctx, val, textMax - 50, 27, 500);
-    ctx.font = `500 ${fs}px ${FONT}`;
-    ctx.fillText(val, P + 48, cy);
+    let fs = 22;
+    ctx.font = F(500, fs);
+    while (fs > 14 && ctx.measureText(val).width > leftMax - 44) ctx.font = F(500, --fs);
+    ctx.fillText(val, P + 42, cy);
     cy += lineH;
   }
-  // QR
-  ctx.fillStyle = '#ffffff';
-  roundRect(ctx, qx, qy, qrSize + qrPad * 2, qrSize + qrPad * 2, 22);
-  ctx.fill();
-  drawQr(ctx, makeQr(meVCard(me)), qx + qrPad, qy + qrPad, qrSize, '#0b0b0c');
-  ctx.fillStyle = t.sub;
-  ctx.font = `500 19px ${FONT}`;
-  ctx.textAlign = 'center';
-  ctx.fillText('Inquadra per salvarmi', qx + qrPad + qrSize / 2, qy + qrSize + qrPad * 2 + 34);
-  ctx.textAlign = 'left';
   ctx.restore();
 }
 function renderTemplates() {
-  const cur = localStorage.meTpl || 'navy';
+  const cur = localStorage.meTpl || DEFAULT_TPL;
   $('#templates').innerHTML = Object.entries(TEMPLATES)
     .map(([k, t]) => `<button class="tpl ${k === cur ? 'on' : ''}" data-k="${k}" style="background:linear-gradient(135deg,${t.bg[0]},${t.bg[1]});color:${t.text}"><i style="background:${t.accent}"></i>${t.name}</button>`)
     .join('');
@@ -1014,20 +1081,24 @@ function renderMe() {
   $('#meForm').classList.toggle('hidden', !!me);
   if (!me) fillMeForm({});
   else {
-    drawCard($('#cardCanvas'), me, localStorage.meTpl || 'navy');
+    drawCard($('#cardCanvas'), me, localStorage.meTpl || DEFAULT_TPL);
     renderTemplates();
   }
 }
-let meLogo = null;
+const meImgs = { logo: null, photo: null };
 function fillMeForm(me) {
   const f = $('#meForm');
   for (const el of f.elements) if (el.name) el.value = me[el.name] || '';
-  meLogo = me.logo || null;
-  renderLogoPrev();
+  meImgs.logo = me.logo || null;
+  meImgs.photo = me.photo || null;
+  renderImgPrev();
 }
-function renderLogoPrev() {
-  $('#meLogoPrev').innerHTML = meLogo ? `<img src="${meLogo}" alt="">` : 'Logo<br>o foto';
-  $('#meLogoDel').classList.toggle('hidden', !meLogo);
+function renderImgPrev() {
+  for (const k of ['logo', 'photo']) {
+    const box = $(`.img-pick[data-k="${k}"]`);
+    box.querySelector('.logo-prev').innerHTML = meImgs[k] ? `<img src="${meImgs[k]}" alt="">` : k === 'logo' ? 'Logo' : 'Foto';
+    box.querySelector('.del').classList.toggle('hidden', !meImgs[k]);
+  }
 }
 $('#editMeBtn').onclick = () => {
   fillMeForm(getMe() || {});
@@ -1039,21 +1110,25 @@ $('#meCancel').onclick = () => {
   if (getMe()) renderMe();
   else history.back();
 };
-$('#meLogoBtn').onclick = () => $('#meLogoInput').click();
-$('#meLogoDel').onclick = () => { meLogo = null; renderLogoPrev(); };
-$('#meLogoInput').onchange = async (e) => {
+let imgPickKey = null;
+$$('.img-pick').forEach((box) => {
+  box.querySelector('.pick').onclick = () => { imgPickKey = box.dataset.k; $('#meImgInput').click(); };
+  box.querySelector('.del').onclick = () => { meImgs[box.dataset.k] = null; renderImgPrev(); };
+});
+$('#meImgInput').onchange = async (e) => {
   const file = e.target.files[0];
   e.target.value = '';
-  if (!file) return;
+  if (!file || !imgPickKey) return;
   const img = await loadImage(await fileToDataURL(file));
-  meLogo = scaledCanvas(img, 500).toDataURL('image/png');
-  renderLogoPrev();
+  meImgs[imgPickKey] = imgPickKey === 'photo' ? scaledCanvas(img, 600).toDataURL('image/jpeg', 0.9) : scaledCanvas(img, 600).toDataURL('image/png');
+  renderImgPrev();
 };
 $('#meForm').onsubmit = (e) => {
   e.preventDefault();
   const me = {};
   for (const el of e.target.elements) if (el.name) me[el.name] = el.value.trim();
-  me.logo = meLogo;
+  me.logo = meImgs.logo;
+  me.photo = meImgs.photo;
   try {
     makeQr(meVCard(me));
   } catch {

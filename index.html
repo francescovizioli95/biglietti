@@ -138,13 +138,18 @@
     </div>
 
     <form id="meForm" class="hidden" autocomplete="on">
-      <div class="logo-pick">
-        <div id="meLogoPrev" class="logo-prev">Logo<br>o foto</div>
-        <div>
-          <button type="button" id="meLogoBtn" class="btn ghost small">Scegli logo / foto</button>
-          <button type="button" id="meLogoDel" class="btn link small hidden">Rimuovi</button>
+      <div class="pickers">
+        <div class="img-pick" data-k="photo">
+          <div class="logo-prev round">Foto</div>
+          <button type="button" class="btn ghost small pick">La tua foto</button>
+          <button type="button" class="btn link small del hidden">Rimuovi</button>
         </div>
-        <input id="meLogoInput" type="file" accept="image/*" hidden>
+        <div class="img-pick" data-k="logo">
+          <div class="logo-prev">Logo</div>
+          <button type="button" class="btn ghost small pick">Logo azienda</button>
+          <button type="button" class="btn link small del hidden">Rimuovi</button>
+        </div>
+        <input id="meImgInput" type="file" accept="image/*" hidden>
       </div>
       <div class="row2">
         <label>Nome<input name="firstName" autocomplete="given-name" required></label>
@@ -161,7 +166,7 @@
       <label>LinkedIn<input name="linkedin" autocapitalize="off" placeholder="linkedin.com/in/..."></label>
       <label>Instagram o altro link<input name="other" autocapitalize="off"></label>
       <label>Indirizzo<input name="address" autocomplete="street-address"></label>
-      <label>Frase breve (facoltativa)<input name="tagline" maxlength="60" placeholder="es. Strategie di trading per aziende"></label>
+      <label>Sottotitolo (facoltativo)<input name="tagline" maxlength="40" placeholder="es. Market intelligence"></label>
       <div class="form-actions">
         <button type="button" id="meCancel" class="btn ghost">Annulla</button>
         <button type="submit" class="btn primary">Salva</button>
