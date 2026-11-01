@@ -306,3 +306,12 @@ html.locked #lockView { display: flex !important; }
 .profile-tabs { padding-top: 0; margin-bottom: 12px; }
 .profile-tabs .chip.add { color: var(--accent); border-style: dashed; }
 #meDelete { color: var(--danger); }
+
+.install-bar { position: fixed; left: 12px; right: 12px; bottom: calc(92px + var(--safe-b)); z-index: 30; display: flex; align-items: center; gap: 12px;
+  background: #061525; color: #fff; border-radius: 18px; padding: 12px 12px 12px 12px; box-shadow: 0 14px 40px rgba(6,21,37,.45); animation: up .25s; max-width: 696px; margin: 0 auto; }
+.install-bar img { width: 46px; height: 46px; border-radius: 12px; }
+.install-bar div { flex: 1; min-width: 0; }
+.install-bar b { display: block; }
+.install-bar small { color: #9fb6d3; }
+.install-bar .btn.primary { background: linear-gradient(135deg, #2a5fd0, #7fb2ff); }
+.install-x { background: none; border: 0; color: #9fb6d3; font-size: 26px; padding: 0 4px; }

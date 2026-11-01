@@ -851,6 +851,12 @@ const DEFAULT_TPL = 'universe';
 // Più biglietti personali (es. il tuo e quello del socio)
 function getProfiles() {
   try {
+    if (!localStorage.defaultsSeeded && typeof DEFAULT_PROFILES !== 'undefined') {
+      localStorage.defaultsSeeded = '1';
+      const cur = JSON.parse(localStorage.profiles || '[]');
+      for (const d of DEFAULT_PROFILES) if (!cur.some((p) => (p.email || '').toLowerCase() === d.email)) cur.push({ ...d });
+      localStorage.profiles = JSON.stringify(cur);
+    }
     if (!localStorage.profiles && localStorage.me) {
       const old = JSON.parse(localStorage.me);
       if (old) old.tpl = old.tpl || localStorage.meTpl || DEFAULT_TPL;
@@ -1116,7 +1122,7 @@ async function drawCard(canvas, me, tplKey) {
     const col = twoCol ? (i < Math.ceil(contacts.length / 2) ? 0 : 1) : 0;
     const row = twoCol ? i % Math.ceil(contacts.length / 2) : i;
     const x = P + col * colW;
-    const yy = 432 + row * 46;
+    const yy = 428 + row * (Math.ceil(contacts.length / (twoCol ? 2 : 1)) > 2 ? 40 : 46);
     drawIcon(ctx, ico, x, yy - 20, 23, t.accent);
     ctx.fillStyle = t.text;
     let fs = twoCol ? 19 : 22;
@@ -1301,6 +1307,27 @@ function updateLockMenu() {
   $('#menuLock').textContent = Lock.enabled() ? 'Togli il PIN' : 'Proteggi con PIN';
   $('#menuLockNow').classList.toggle('hidden', !Lock.enabled());
 }
+
+/* =================== Installa sulla Home =================== */
+let installEvt = null;
+const isStandalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  installEvt = e;
+  if (!isStandalone()) $('#installBar').classList.remove('hidden');
+});
+window.addEventListener('appinstalled', () => {
+  $('#installBar').classList.add('hidden');
+  toast('Fatto! Trovi Otharis Ticket nella schermata Home', 4000);
+});
+$('#installBtn').onclick = async () => {
+  if (!installEvt) return;
+  installEvt.prompt();
+  await installEvt.userChoice.catch(() => {});
+  installEvt = null;
+  $('#installBar').classList.add('hidden');
+};
+$('#installClose').onclick = () => $('#installBar').classList.add('hidden');
 
 /* =================== Avvio =================== */
 (async function init() {
