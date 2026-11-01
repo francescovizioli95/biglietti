@@ -5,7 +5,7 @@ const Lock = (() => {
   const RELOCK_MS = 60 * 1000; // si richiude se l'app resta in background più di 1 minuto
   let hiddenAt = 0;
   let pin = '';
-  let mode = 'unlock'; // unlock | set1 | set2
+  let mode = 'unlock'; // unlock | verify | set1 | set2
   let firstPin = '';
   let onDone = null;
 
@@ -30,7 +30,7 @@ const Lock = (() => {
   function render() {
     const dots = el('#lockDots');
     dots.innerHTML = [0, 1, 2, 3, 4, 5].map((i) => `<i class="${i < pin.length ? 'on' : ''}"></i>`).join('');
-    const titles = { unlock: 'Inserisci il PIN', set1: 'Scegli un PIN di 6 cifre', set2: 'Ripeti il PIN' };
+    const titles = { unlock: 'Inserisci il PIN', verify: 'Inserisci il PIN attuale', set1: 'Scegli un PIN di 6 cifre', set2: 'Ripeti il PIN' };
     el('#lockTitle').textContent = window.t(titles[mode]);
     el('#lockBio').classList.toggle('hidden', !(mode === 'unlock' && hasBio()));
     el('#lockCancel').classList.toggle('hidden', mode === 'unlock');
@@ -59,7 +59,7 @@ const Lock = (() => {
     document.documentElement.classList.remove('locked');
   }
   async function submit() {
-    if (mode === 'unlock') {
+    if (mode === 'unlock' || mode === 'verify') {
       const until = +localStorage[K.until] || 0;
       if (Date.now() < until) {
         pin = '';
@@ -69,6 +69,7 @@ const Lock = (() => {
       if ((await hashPin(pin, localStorage[K.salt])) === localStorage[K.hash]) {
         localStorage[K.fails] = 0;
         hide();
+        if (mode === 'verify' && onDone) onDone(true);
       } else {
         const f = (+localStorage[K.fails] || 0) + 1;
         localStorage[K.fails] = f;
@@ -173,6 +174,15 @@ const Lock = (() => {
     bioAvailable,
     lockNow: () => enabled() && show('unlock'),
     setPin: () => new Promise((res) => { onDone = res; show('set1'); }),
+    // Cambia PIN: prima quello attuale, poi il nuovo due volte
+    changePin: () => new Promise((res) => {
+      onDone = (ok) => {
+        if (!ok) return res(false);
+        onDone = res;
+        setTimeout(() => show('set1'), 150);
+      };
+      show('verify');
+    }),
     async enableBio() { await enableBio(); },
     disable() {
       for (const k of Object.values(K)) localStorage.removeItem(k);

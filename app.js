@@ -813,6 +813,10 @@ $('#menu').onclick = async (e) => {
     return;
   }
   if (a === 'lockNow') return Lock.lockNow();
+  if (a === 'changePin') {
+    if (await Lock.changePin()) toast('PIN cambiato');
+    return;
+  }
   if (a === 'backup') {
     const blob = new Blob([JSON.stringify({ app: 'biglietti', version: 1, date: new Date().toISOString(), cards: await DB.all(), profiles: getProfiles() })], { type: 'application/json' });
     download(blob, `biglietti-backup-${today}.json`);
@@ -1315,6 +1319,7 @@ $('#qrClose').onclick = () => history.back();
 function updateLockMenu() {
   $('#menuLock').textContent = t(Lock.enabled() ? 'Togli il PIN' : 'Proteggi con PIN');
   $('#menuLockNow').classList.toggle('hidden', !Lock.enabled());
+  $('#menuChangePin').classList.toggle('hidden', !Lock.enabled());
 }
 
 /* =================== Installa sulla Home =================== */
