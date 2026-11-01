@@ -281,3 +281,24 @@ input.flash { background: #fef9c3; border-color: var(--gold); }
 
 label.check { flex-direction: row; align-items: center; gap: 10px; font-size: 14px; color: var(--ink); font-weight: 500; }
 label.check input { width: 20px; height: 20px; padding: 0; accent-color: var(--brand2); }
+
+/* ---------- Blocco PIN ---------- */
+html.locked body > *:not(#lockView) { visibility: hidden !important; }
+html.locked #lockView { display: flex !important; }
+.lock { position: fixed; inset: 0; z-index: 200; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+  background: radial-gradient(120% 80% at 100% 0%, #123a63, #061525 70%); color: #fff; padding: 24px; visibility: visible !important; }
+.lock-logo { width: 72px; height: 72px; border-radius: 18px; box-shadow: 0 10px 30px rgba(0,0,0,.4); }
+.lock-title { font-size: 20px; font-weight: 700; margin-top: 8px; }
+.lock-dots { display: flex; gap: 14px; margin: 6px 0; }
+.lock-dots i { width: 14px; height: 14px; border-radius: 50%; border: 2px solid rgba(255,255,255,.6); }
+.lock-dots i.on { background: #7fb2ff; border-color: #7fb2ff; }
+.lock-dots.shake { animation: shake .4s; }
+@keyframes shake { 20%, 60% { transform: translateX(-10px); } 40%, 80% { transform: translateX(10px); } }
+.lock-msg { min-height: 20px; font-size: 14px; color: #9fb6d3; text-align: center; }
+.lock-msg.bad { color: #fca5a5; }
+.lock-pad { display: grid; grid-template-columns: repeat(3, 76px); gap: 16px 26px; margin-top: 8px; }
+.lock-pad button { width: 76px; height: 76px; border-radius: 50%; border: 0; background: rgba(255,255,255,.08); color: #fff; font: inherit; font-size: 28px; font-weight: 600; display: grid; place-items: center; }
+.lock-pad button:active { background: rgba(127,178,255,.35); }
+.lock-pad .lock-bio svg { width: 34px; height: 34px; color: #7fb2ff; }
+.lock .btn.link { color: #9fb6d3; }
+.lock-pad .lock-bio.hidden { display: grid !important; visibility: hidden; }

@@ -784,6 +784,23 @@ $('#menu').onclick = async (e) => {
   const visible = state.filter.startsWith('event:') ? cards.filter((c) => c.event === state.filter.slice(6)) : cards;
   const tag = state.filter.startsWith('event:') ? '-' + state.filter.slice(6).replace(/\W+/g, '_') : '';
   const today = new Date().toISOString().slice(0, 10);
+  if (a === 'lock') {
+    if (!Lock.enabled()) {
+      const ok = await Lock.setPin();
+      if (!ok) return;
+      if (await Lock.bioAvailable()) {
+        if (confirm('Vuoi sbloccare anche con l\'impronta digitale?')) {
+          try { await Lock.enableBio(); toast('PIN e impronta attivi'); } catch { toast('PIN attivo (impronta non attivata)'); }
+        } else toast('PIN attivo');
+      } else toast('PIN attivo');
+    } else if (confirm('Vuoi togliere il blocco con PIN?')) {
+      Lock.disable();
+      toast('Blocco disattivato');
+    }
+    updateLockMenu();
+    return;
+  }
+  if (a === 'lockNow') return Lock.lockNow();
   if (a === 'backup') {
     const blob = new Blob([JSON.stringify({ app: 'biglietti', version: 1, date: new Date().toISOString(), cards: await DB.all(), me: getMe(), meTpl: localStorage.meTpl })], { type: 'application/json' });
     download(blob, `biglietti-backup-${today}.json`);
@@ -1200,8 +1217,22 @@ $('#qrQuickBtn').onclick = showMyQr;
 $('#showQrBtn').onclick = showMyQr;
 $('#qrClose').onclick = () => history.back();
 
+function updateLockMenu() {
+  $('#menuLock').textContent = Lock.enabled() ? 'Togli il PIN' : 'Proteggi con PIN';
+  $('#menuLockNow').classList.toggle('hidden', !Lock.enabled());
+}
+
 /* =================== Avvio =================== */
 (async function init() {
+  Lock.init();
+  updateLockMenu();
+  if (!Lock.enabled() && !localStorage.lockAsked) {
+    localStorage.lockAsked = '1';
+    setTimeout(() => {
+      toast('Proteggi l\'app: scegli un PIN di 6 cifre', 4000);
+      $('#menuLock').click();
+    }, 600);
+  }
   history.replaceState({ view: 'list' }, '');
   await refresh();
   renderList();
