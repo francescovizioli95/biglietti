@@ -32,7 +32,7 @@
     <button data-action="exportAll">Esporta in rubrica telefono (vCard)</button>
     <button data-action="exportCsv">Esporta in Excel (CSV)</button>
     <button data-action="backup">Salva backup completo</button>
-    <button data-action="restore">Ripristina backup</button>
+    <button data-action="restore">Importa file (backup o biglietti)</button>
   </div>
 
   <!-- ============ RUBRICA ============ -->
@@ -126,6 +126,7 @@
       <h2>Crea il tuo biglietto digitale</h2>
       <p>Compila i tuoi dati una volta sola. Poi chi inquadra il tuo QR si ritrova i tuoi contatti già pronti da salvare.</p>
     </div>
+    <div id="profileTabs" class="chips profile-tabs"></div>
     <div id="meShow" class="hidden">
       <div class="card-preview-wrap"><canvas id="cardCanvas" width="1050" height="600"></canvas></div>
       <div class="me-actions">
@@ -175,6 +176,7 @@
         <button type="button" id="meCancel" class="btn ghost">Annulla</button>
         <button type="submit" class="btn primary">Salva</button>
       </div>
+      <button type="button" id="meDelete" class="btn link hidden">Elimina questo biglietto</button>
     </form>
   </main>
 

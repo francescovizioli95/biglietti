@@ -302,3 +302,7 @@ html.locked #lockView { display: flex !important; }
 .lock-pad .lock-bio svg { width: 34px; height: 34px; color: #7fb2ff; }
 .lock .btn.link { color: #9fb6d3; }
 .lock-pad .lock-bio.hidden { display: grid !important; visibility: hidden; }
+
+.profile-tabs { padding-top: 0; margin-bottom: 12px; }
+.profile-tabs .chip.add { color: var(--accent); border-style: dashed; }
+#meDelete { color: var(--danger); }

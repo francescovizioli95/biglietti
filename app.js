@@ -802,7 +802,7 @@ $('#menu').onclick = async (e) => {
   }
   if (a === 'lockNow') return Lock.lockNow();
   if (a === 'backup') {
-    const blob = new Blob([JSON.stringify({ app: 'biglietti', version: 1, date: new Date().toISOString(), cards: await DB.all(), me: getMe(), meTpl: localStorage.meTpl })], { type: 'application/json' });
+    const blob = new Blob([JSON.stringify({ app: 'biglietti', version: 1, date: new Date().toISOString(), cards: await DB.all(), profiles: getProfiles() })], { type: 'application/json' });
     download(blob, `biglietti-backup-${today}.json`);
     toast('Backup salvato nei Download. Conservalo su Drive!', 3500);
   } else if (a === 'restore') {
@@ -824,13 +824,15 @@ $('#restoreInput').onchange = async (e) => {
   if (!file) return;
   try {
     const data = JSON.parse(await file.text());
-    const cards = Array.isArray(data) ? data : data.cards;
-    if (!Array.isArray(cards)) throw new Error();
+    const cards = Array.isArray(data) ? data : data.cards || [];
+    const profiles = data.profiles || (data.me ? [data.me] : []);
+    if (!cards.length && !profiles.length) throw new Error();
     for (const c of cards) if (c && c.id) await DB.put(c);
-    if (data.me && !localStorage.me) localStorage.me = JSON.stringify(data.me);
-    if (data.meTpl && !localStorage.meTpl) localStorage.meTpl = data.meTpl;
+    const np = importProfiles(profiles);
     await refresh();
-    toast(`Ripristinati ${cards.length} biglietti`);
+    const parts = [cards.length && `${cards.length} contatti`, np && (np === 1 ? '1 biglietto personale' : `${np} biglietti personali`)].filter(Boolean);
+    toast('Importati ' + parts.join(' e '), 3500);
+    if (np) setTimeout(() => $$('#tabbar [data-tab="me"]')[0].click(), 300);
   } catch {
     toast('File di backup non valido');
   }
@@ -846,8 +848,48 @@ const TEMPLATES = {
   wine:     { name: 'Bordeaux', bg: ['#2e0810', '#6e1a2c'], text: '#ffffff', sub: '#ecd2d8', accent: '#e7c27d', accent2: '#a5813e', qrInk: '#2e0810' },
 };
 const DEFAULT_TPL = 'universe';
+// Più biglietti personali (es. il tuo e quello del socio)
+function getProfiles() {
+  try {
+    if (!localStorage.profiles && localStorage.me) {
+      const old = JSON.parse(localStorage.me);
+      if (old) old.tpl = old.tpl || localStorage.meTpl || DEFAULT_TPL;
+      localStorage.profiles = JSON.stringify(old ? [old] : []);
+      localStorage.removeItem('me');
+    }
+    return JSON.parse(localStorage.profiles || '[]');
+  } catch { return []; }
+}
+function setProfiles(list) {
+  localStorage.profiles = JSON.stringify(list);
+}
+function profileIdx() {
+  const n = getProfiles().length;
+  return Math.min(Math.max(0, +localStorage.profileIdx || 0), Math.max(0, n - 1));
+}
 function getMe() {
-  try { return JSON.parse(localStorage.me || 'null'); } catch { return null; }
+  return getProfiles()[profileIdx()] || null;
+}
+function saveMe(me, asNew) {
+  const list = getProfiles();
+  if (asNew || !list.length) {
+    list.push(me);
+    localStorage.profileIdx = list.length - 1;
+  } else list[profileIdx()] = me;
+  setProfiles(list);
+}
+function importProfiles(incoming) {
+  const list = getProfiles();
+  let n = 0;
+  for (const p of incoming || []) {
+    if (!p || !p.firstName) continue;
+    const key = (p.email || meFullName(p)).toLowerCase();
+    const i = list.findIndex((x) => (x.email || meFullName(x)).toLowerCase() === key);
+    if (i >= 0) list[i] = p; else list.push(p);
+    n++;
+  }
+  setProfiles(list);
+  return n;
 }
 const meFullName = (me) => [me.firstName, me.lastName].filter(Boolean).join(' ');
 function meVCard(me) {
@@ -1068,7 +1110,7 @@ async function drawCard(canvas, me, tplKey) {
     me.website && ['web', me.website.replace(/^https?:\/\//, '').replace(/\/$/, '')],
     me.linkedin && ['in', me.linkedin.replace(/^https?:\/\/(www\.)?/, '')],
   ].filter(Boolean).slice(0, 4);
-  const twoCol = contacts.length > 2;
+  const twoCol = contacts.length > 3;
   const colW = twoCol ? (leftMax + 20) / 2 : leftMax;
   contacts.forEach(([ico, val], i) => {
     const col = twoCol ? (i < Math.ceil(contacts.length / 2) ? 0 : 1) : 0;
@@ -1093,7 +1135,7 @@ async function drawCard(canvas, me, tplKey) {
   ctx.restore();
 }
 function renderTemplates() {
-  const cur = localStorage.meTpl || DEFAULT_TPL;
+  const cur = (getMe() || {}).tpl || DEFAULT_TPL;
   $('#templates').innerHTML = Object.entries(TEMPLATES)
     .map(([k, t]) => `<button class="tpl ${k === cur ? 'on' : ''}" data-k="${k}" style="background:linear-gradient(135deg,${t.bg[0]},${t.bg[1]});color:${t.text}"><i style="background:${t.accent}"></i>${t.name}</button>`)
     .join('');
@@ -1101,26 +1143,53 @@ function renderTemplates() {
 $('#templates').onclick = (e) => {
   const b = e.target.closest('.tpl');
   if (!b) return;
-  localStorage.meTpl = b.dataset.k;
+  const me = getMe();
+  me.tpl = b.dataset.k;
+  saveMe(me);
   renderMe();
 };
+let meNew = false;
 function renderMe() {
   const me = getMe();
+  meNew = false;
   $('#meEmpty').classList.toggle('hidden', !!me);
   $('#meShow').classList.toggle('hidden', !me);
   $('#meForm').classList.toggle('hidden', !!me);
+  $('#meDelete').classList.add('hidden');
   if (!me) fillMeForm({});
   else {
-    drawCard($('#cardCanvas'), me, localStorage.meTpl || DEFAULT_TPL);
+    drawCard($('#cardCanvas'), me, me.tpl || DEFAULT_TPL);
     renderTemplates();
   }
+  const list = getProfiles();
+  const cur = profileIdx();
+  $('#profileTabs').innerHTML = list.length
+    ? list.map((p, i) => `<button class="chip ${i === cur ? 'on' : ''}" data-i="${i}">${esc(p.firstName || 'Biglietto')}</button>`).join('') +
+      '<button class="chip add" data-new="1">+ Nuovo</button>'
+    : '';
 }
+$('#profileTabs').onclick = (e) => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  if (b.dataset.new) {
+    meNew = true;
+    fillMeForm({ company: (getMe() || {}).company, website: (getMe() || {}).website, logo: (getMe() || {}).logo, tpl: (getMe() || {}).tpl });
+    $('#meShow').classList.add('hidden');
+    $('#meForm').classList.remove('hidden');
+    $('#meDelete').classList.add('hidden');
+    window.scrollTo(0, 0);
+    return;
+  }
+  localStorage.profileIdx = b.dataset.i;
+  renderMe();
+};
 const meImgs = { logo: null, photo: null };
 function fillMeForm(me) {
   const f = $('#meForm');
   for (const el of f.elements) if (el.name) { if (el.type === 'checkbox') el.checked = me[el.name] !== ''; else el.value = me[el.name] || ''; }
   meImgs.logo = me.logo || null;
   meImgs.photo = me.photo || null;
+  meImgs.tpl = me.tpl || null;
   renderImgPrev();
 }
 function renderImgPrev() {
@@ -1132,9 +1201,19 @@ function renderImgPrev() {
 }
 $('#editMeBtn').onclick = () => {
   fillMeForm(getMe() || {});
+  $('#meDelete').classList.remove('hidden');
   $('#meShow').classList.add('hidden');
   $('#meForm').classList.remove('hidden');
   window.scrollTo(0, 0);
+};
+$('#meDelete').onclick = () => {
+  const me = getMe();
+  if (!me || !confirm(`Eliminare il biglietto di ${meFullName(me)}?`)) return;
+  const list = getProfiles();
+  list.splice(profileIdx(), 1);
+  setProfiles(list);
+  localStorage.profileIdx = 0;
+  renderMe();
 };
 $('#meCancel').onclick = () => {
   if (getMe()) renderMe();
@@ -1159,13 +1238,14 @@ $('#meForm').onsubmit = (e) => {
   for (const el of e.target.elements) if (el.name) me[el.name] = el.type === 'checkbox' ? (el.checked ? el.value : '') : el.value.trim();
   me.logo = meImgs.logo;
   me.photo = meImgs.photo;
+  me.tpl = meImgs.tpl || DEFAULT_TPL;
   try {
     makeQr(meVCard(me));
   } catch {
     return toast('Troppi dati per il QR: accorcia qualche campo');
   }
-  localStorage.me = JSON.stringify(me);
-  toast('Il tuo biglietto è pronto');
+  saveMe(me, meNew);
+  toast('Biglietto pronto');
   renderMe();
 };
 function cardBlob() {
