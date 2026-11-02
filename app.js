@@ -50,33 +50,68 @@ function fileToDataURL(file) {
     r.readAsDataURL(file);
   });
 }
-function scaledCanvas(src, max) {
+function scaledCanvas(src, max, up) {
   const w = src.naturalWidth || src.videoWidth || src.width;
   const h = src.naturalHeight || src.videoHeight || src.height;
-  const k = Math.min(1, max / Math.max(w, h));
+  const k = up ? Math.min(2, max / Math.max(w, h)) : Math.min(1, max / Math.max(w, h));
   const c = document.createElement('canvas');
   c.width = Math.round(w * k);
   c.height = Math.round(h * k);
-  c.getContext('2d').drawImage(src, 0, 0, c.width, c.height);
+  const x = c.getContext('2d');
+  x.imageSmoothingQuality = 'high';
+  x.drawImage(src, 0, 0, c.width, c.height);
   return c;
 }
-// Per l'OCR: scala di grigi + contrasto automatico → lettura più precisa
+// Per l'OCR: scala di grigi, correzione della luce (ombre, riflessi, tavolo scuro) e contrasto automatico
 function ocrCanvas(src) {
-  const c = scaledCanvas(src, 2200);
+  // foto piccole: le ingrandisco, Tesseract legge meglio le lettere alte almeno 25-30 pixel
+  const sw = src.naturalWidth || src.videoWidth || src.width, sh = src.naturalHeight || src.videoHeight || src.height;
+  const c = Math.max(sw, sh) < 2000 ? scaledCanvas(src, 2000, true) : scaledCanvas(src, 2200);
+  const w = c.width, h = c.height;
   const ctx = c.getContext('2d');
-  const im = ctx.getImageData(0, 0, c.width, c.height);
+  // sfondo stimato: immagine rimpicciolita e sfocata, poi riportata a grandezza piena
+  const small = document.createElement('canvas');
+  small.width = Math.max(1, w >> 4);
+  small.height = Math.max(1, h >> 4);
+  const sx = small.getContext('2d');
+  sx.filter = 'blur(2px)';
+  sx.drawImage(c, 0, 0, small.width, small.height);
+  const bg = document.createElement('canvas');
+  bg.width = w;
+  bg.height = h;
+  const bx = bg.getContext('2d');
+  bx.imageSmoothingQuality = 'high';
+  bx.drawImage(small, 0, 0, w, h);
+  // biglietto scuro (testo chiaro su fondo scuro): inverto i colori, l'OCR legge meglio nero su bianco
+  const cw = Math.round(w * 0.6), ch = Math.round(h * 0.6);
+  const cd = ctx.getImageData(Math.round(w * 0.2), Math.round(h * 0.2), cw, ch).data;
+  const lum = [];
+  for (let i = 0; i < cd.length; i += 4 * 7) lum.push((cd[i] * 299 + cd[i + 1] * 587 + cd[i + 2] * 114) / 1000);
+  lum.sort((a, b) => a - b);
+  if (lum[lum.length >> 1] < 110) {
+    ctx.filter = 'invert(1)';
+    ctx.drawImage(c, 0, 0);
+    ctx.filter = 'none';
+    bx.filter = 'invert(1)';
+    bx.drawImage(bg, 0, 0);
+    bx.filter = 'none';
+  }
+  const im = ctx.getImageData(0, 0, w, h);
   const d = im.data;
+  const bd = bx.getImageData(0, 0, w, h).data;
   const hist = new Uint32Array(256);
   for (let i = 0; i < d.length; i += 4) {
     const g = (d[i] * 299 + d[i + 1] * 587 + d[i + 2] * 114) / 1000;
-    d[i] = g;
-    hist[g | 0]++;
+    const b = (bd[i] * 299 + bd[i + 1] * 587 + bd[i + 2] * 114) / 1000 + 1;
+    const v = Math.min(255, (g / b) * 235);
+    d[i] = v;
+    hist[v | 0]++;
   }
   const total = d.length / 4;
   let lo = 0, hi = 255, acc = 0;
   while (lo < 255 && (acc += hist[lo]) < total * 0.01) lo++;
   acc = 0;
-  while (hi > 0 && (acc += hist[hi]) < total * 0.01) hi--;
+  while (hi > 0 && (acc += hist[hi]) < total * 0.02) hi--;
   const range = Math.max(30, hi - lo);
   for (let i = 0; i < d.length; i += 4) {
     const v = Math.max(0, Math.min(255, ((d[i] - lo) * 255) / range));
@@ -134,8 +169,9 @@ function runOcr(dataUrl, onProgress) {
     const { data } = await worker.recognize(dataUrl);
     ocrProgress = null;
     const lines = (data.lines || [])
-      .filter((l) => l.confidence > 30 && l.text.trim().length > 1)
-      .map((l) => ({ text: l.text.replace(/[|_~`«»•·]+/g, ' ').replace(/\s+/g, ' ').trim(), height: l.bbox ? l.bbox.y1 - l.bbox.y0 : 0 }));
+      .filter((l) => l.confidence > 30)
+      .map((l) => ({ text: cleanOcrLine(l.text), height: l.bbox ? l.bbox.y1 - l.bbox.y0 : 0 }))
+      .filter((l) => l.text.length > 1);
     const hs = lines.map((l) => l.height).filter(Boolean).sort((a, b) => a - b);
     const med = hs[Math.floor(hs.length / 2)] || 1;
     lines.forEach((l) => (l.height = Math.round((l.height / med) * 20)));
@@ -144,10 +180,20 @@ function runOcr(dataUrl, onProgress) {
   ocrChain = job.catch(() => {});
   return job;
 }
+// Toglie i pezzetti di bordo/ombra letti come lettere ("|", "]", "I" isolati lontano dal testo)
+function cleanOcrLine(raw) {
+  const parts = String(raw).replace(/[|_~`«»•·\[\]{}]+/g, ' ').split(/\s{5,}/).map((x) => x.trim()).filter(Boolean);
+  const keep = parts.length > 1 ? parts.filter((x) => x.replace(/[^\p{L}\d]/gu, '').length >= 3) : parts;
+  return keep.join(' ').replace(/\s+/g, ' ')
+    .replace(/^[Il1i!]\s+(?=[\p{L}+(\d])/u, '') // "I Matteo Bruno" -> "Matteo Bruno"
+    .replace(/(\S{3,})\s+[^\p{L}\s]$/u, '$1') // "nome@sito.com 4" -> "nome@sito.com"
+    .replace(/^[^\p{L}\d+(]+|[^\p{L}\d).]+$/gu, '').trim();
+}
+const fullName = (c) => [c.firstName, c.lastName].filter(Boolean).join(' ').trim();
 function fieldsFromOcr(lines) {
   const f = CardParser.parseCard(lines);
   return {
-    name: f.name, company: f.company, role: f.role, email: f.email,
+    name: f.name, firstName: f.firstName, lastName: f.lastName, company: f.company, role: f.role, email: f.email,
     website: f.website, address: f.address, phone: f.phones[0] || '', phone2: f.phones[1] || '',
   };
 }
@@ -164,7 +210,7 @@ async function processQueue() {
       updateQueueBar(all);
       if (!next) break;
       try {
-        const { lines, text } = await runOcr(next.ocrSrc || next.image, (m) => {
+        const { lines, text } = await runOcr(next.ocrSrc || ocrCanvas(await loadImage(next.image)), (m) => {
           if (m.status === 'recognizing text') updateQueueBar(null, Math.round(m.progress * 100));
           if (state.view === 'edit' && state.draft && state.draft.id === next.id) showOcrProgress(m);
         });
@@ -172,7 +218,7 @@ async function processQueue() {
         const fresh = (await DB.get(next.id)) || next;
         if (fresh.status !== 'pending') continue; // modificato a mano nel frattempo
         Object.assign(fresh, {
-          name: fresh.name || f.name, company: fresh.company || f.company, role: fresh.role || f.role,
+          name: fresh.name || f.name, firstName: fresh.firstName || f.firstName, lastName: fresh.lastName || f.lastName, company: fresh.company || f.company, role: fresh.role || f.role,
           email: fresh.email || f.email, website: fresh.website || f.website, address: fresh.address || f.address,
           phones: fresh.phones && fresh.phones.length ? fresh.phones : [f.phone, f.phone2].filter(Boolean),
           ocrLines: lines, rawText: text, status: 'review',
@@ -276,8 +322,30 @@ $$('#tabbar [data-tab]').forEach((b) =>
 /* =================== Rubrica =================== */
 async function refresh() {
   state.cards = await DB.all();
+  await migrateCards();
   if (state.view === 'list') renderList();
   renderEventList();
+}
+// Contatti salvati con la versione precedente: nome e cognome separati,
+// e quelli ancora "da controllare" vengono riletti con la lettura nuova, più precisa
+async function migrateCards() {
+  if (localStorage.cardsV === '2') return;
+  let reread = false;
+  for (const c of state.cards) {
+    if (c.status === 'review' && c.image) {
+      Object.assign(c, { name: '', firstName: '', lastName: '', company: '', role: '', email: '', website: '', address: '', phones: [], status: 'pending', ocrSrc: null });
+      delete c.ocrSrc;
+      reread = true;
+    } else if (c.firstName == null && c.lastName == null) {
+      const sp = CardParser.splitName(c.name || '', c.email);
+      c.firstName = sp.first;
+      c.lastName = sp.last;
+      c.name = fullName(c) || c.name || '';
+    } else continue;
+    await DB.put(c);
+  }
+  localStorage.cardsV = '2';
+  if (reread) setTimeout(processQueue, 500);
 }
 function renderEventList() {
   const evs = [...new Set(state.cards.map((c) => c.event).filter(Boolean))];
@@ -285,7 +353,8 @@ function renderEventList() {
   return evs;
 }
 function sortCards(arr) {
-  if (state.sort === 'az') return arr.sort((a, b) => (a.name || a.company || '~').localeCompare(b.name || b.company || '~', 'it'));
+  const key = (c) => ((c.lastName || '') + ' ' + (c.firstName || '') + ' ' + (c.name || c.company || '~')).trim().toLowerCase();
+  if (state.sort === 'az') return arr.sort((a, b) => key(a).localeCompare(key(b), 'it'));
   return arr.sort((a, b) => b.created - a.created);
 }
 function renderChips() {
@@ -323,7 +392,7 @@ function renderList() {
   items = sortCards(items);
   $('#list').innerHTML = items
     .map((c) => {
-      const title = c.name || c.company || t(c.status === 'pending' ? 'Lettura in corso...' : 'Senza nome');
+      const title = fullName(c) || c.name || c.company || t(c.status === 'pending' ? 'Lettura in corso...' : 'Senza nome');
       const sub = [c.role, c.name ? c.company : ''].filter(Boolean).join(' · ');
       const badge =
         c.status === 'pending' ? `<span class="badge wait">${t('in lettura')}</span>` :
@@ -516,7 +585,7 @@ $('#cameraInput').onchange = async (e) => {
 
 /* =================== Modifica =================== */
 let photoTarget = null;
-const FIELDS = ['name', 'company', 'role', 'email', 'website', 'address', 'event', 'notes'];
+const FIELDS = ['firstName', 'lastName', 'company', 'role', 'email', 'website', 'address', 'event', 'notes'];
 function startEdit(card, title) {
   state.draft = { ...card };
   const form = $('#form');
@@ -547,7 +616,7 @@ function showOcrProgress(m) {
 }
 function applyOcrToForm(f, lines, overwrite) {
   const form = $('#form');
-  for (const k of ['name', 'company', 'role', 'phone', 'phone2', 'email', 'website', 'address']) {
+  for (const k of ['firstName', 'lastName', 'company', 'role', 'phone', 'phone2', 'email', 'website', 'address']) {
     if (f[k] && (overwrite || !form[k].value)) form[k].value = f[k];
   }
   const prev = overwrite ? [] : state.draft.ocrLines || [];
@@ -556,7 +625,7 @@ function applyOcrToForm(f, lines, overwrite) {
   renderLines(state.draft.ocrLines);
   $('#ocrStatus').classList.add('hidden');
   checkDup();
-  const found = f.name || f.phone || f.email;
+  const found = f.firstName || f.phone || f.email;
   toast(found ? 'Letto! Controlla e salva.' : 'Ho letto poco: tocca le righe qui sotto o scrivi a mano.', 3200);
 }
 async function ocrInEdit(src, overwrite) {
@@ -599,10 +668,16 @@ $('#assignSheet').onclick = (e) => {
   } else {
     t = t.replace(/^(tel|cell|mobile|e-?mail|mail|web|sito|fax)\s*[:.]\s*/i, '');
   }
+  const flash = (k) => { form[k].classList.add('flash'); setTimeout(() => form[k].classList.remove('flash'), 600); };
   if (f === 'notes') form.notes.value = (form.notes.value ? form.notes.value + '\n' : '') + t;
+  else if (f === 'name') {
+    const sp = CardParser.splitName(t, form.email.value);
+    form.firstName.value = sp.first;
+    form.lastName.value = sp.last;
+    flash('lastName');
+  } else if (f === 'firstName' || f === 'lastName') form[f].value = CardParser.cap(t);
   else form[f].value = t;
-  form[f].classList.add('flash');
-  setTimeout(() => form[f].classList.remove('flash'), 600);
+  flash(f === 'name' ? 'firstName' : f);
   checkDup();
   history.back();
 };
@@ -620,7 +695,7 @@ $('#rereadBtn').onclick = async () => {
   ocrInEdit(ocrCanvas(img), true);
 };
 $('#cancelBtn').onclick = () => history.back();
-['phone', 'phone2', 'email', 'name'].forEach((n) => $('#form')[n].addEventListener('change', checkDup));
+['phone', 'phone2', 'email', 'firstName', 'lastName'].forEach((n) => $('#form')[n].addEventListener('change', checkDup));
 function findDup(card) {
   const ph = (card.phones || []).map(digits).filter((d) => d.length >= 8).map((d) => d.slice(-9));
   const em = (card.email || '').toLowerCase();
@@ -636,7 +711,7 @@ function findDup(card) {
 }
 function checkDup() {
   const f = $('#form');
-  const d = findDup({ id: state.draft && state.draft.id, name: f.name.value, email: f.email.value, phones: [f.phone.value, f.phone2.value] });
+  const d = findDup({ id: state.draft && state.draft.id, name: fullName({ firstName: f.firstName.value, lastName: f.lastName.value }), email: f.email.value, phones: [f.phone.value, f.phone2.value] });
   const w = $('#dupWarn');
   w.classList.toggle('hidden', !d);
   if (d) w.innerHTML = `${t('Forse ce l\'hai già:')} <b>${esc(d.name || d.company)}</b>${d.event ? ' (' + esc(d.event) + ')' : ''}`;
@@ -646,6 +721,7 @@ $('#form').onsubmit = async (e) => {
   const f = e.target;
   const d = state.draft;
   for (const k of FIELDS) d[k] = f[k].value.trim();
+  d.name = fullName(d);
   d.phones = [f.phone.value.trim(), f.phone2.value.trim()].filter(Boolean);
   if (!d.name && !d.company && !d.phones.length && !d.email && !d.image) return toast('Inserisci almeno un dato');
   if (d.event) localStorage.lastEvent = d.event;
@@ -742,7 +818,7 @@ function splitName(full) {
   return [p.slice(0, -1).join(' '), p[p.length - 1]];
 }
 function toVCard(c) {
-  const [first, last] = splitName(c.name);
+  const [first, last] = c.firstName != null || c.lastName != null ? [c.firstName || '', c.lastName || ''] : splitName(c.name);
   const L = ['BEGIN:VCARD', 'VERSION:3.0', `N:${vEsc(last)};${vEsc(first)};;;`, `FN:${vEsc(c.name || c.company || 'Contatto')}`];
   if (c.company) L.push(`ORG:${vEsc(c.company)}`);
   if (c.role) L.push(`TITLE:${vEsc(c.role)}`);
@@ -831,7 +907,7 @@ $('#menu').onclick = async (e) => {
     shareFiles([vcfFile(visible, `biglietti${tag}.vcf`)], 'Aprilo per importarli nei Contatti');
   } else if (a === 'exportCsv') {
     if (!visible.length) return toast('Nessun biglietto');
-    const cols = [['Nome', 'name'], ['Azienda', 'company'], ['Ruolo', 'role'], ['Telefono', (c) => (c.phones || [])[0]], ['Altro telefono', (c) => (c.phones || [])[1]], ['Email', 'email'], ['Sito', 'website'], ['Indirizzo', 'address'], ['Evento', 'event'], ['Note', 'notes'], ['Data', (c) => new Date(c.created).toLocaleDateString(LANG === 'en' ? 'en-GB' : 'it-IT')]].map(([h, k]) => [h === 'Nome' ? t('Nome e cognome') : t(h), k]);
+    const cols = [['Nome', 'firstName'], ['Cognome', 'lastName'], ['Azienda', 'company'], ['Ruolo', 'role'], ['Telefono', (c) => (c.phones || [])[0]], ['Altro telefono', (c) => (c.phones || [])[1]], ['Email', 'email'], ['Sito', 'website'], ['Indirizzo', 'address'], ['Evento', 'event'], ['Note', 'notes'], ['Data', (c) => new Date(c.created).toLocaleDateString(LANG === 'en' ? 'en-GB' : 'it-IT')]].map(([h, k]) => [t(h), k]);
     const q = (v) => '"' + String(v ?? '').replace(/"/g, '""') + '"';
     const rows = [cols.map((c) => q(c[0])).join(';'), ...visible.map((c) => cols.map(([, k]) => q(typeof k === 'function' ? k(c) : c[k])).join(';'))];
     shareFiles([new File(['\ufeff' + rows.join('\r\n')], `biglietti${tag}-${today}.csv`, { type: 'text/csv' })], 'Aprilo con Excel o Fogli Google');

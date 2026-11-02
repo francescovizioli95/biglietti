@@ -79,14 +79,17 @@
 
     <form id="form" autocomplete="off">
       <div id="dupWarn" class="dup-warn hidden"></div>
-      <label>Nome e cognome<input name="name" autocapitalize="words"></label>
-      <label>Azienda<input name="company"></label>
-      <label>Ruolo<input name="role"></label>
+      <div class="row2">
+        <label>Nome<input name="firstName" autocapitalize="words"></label>
+        <label>Cognome<input name="lastName" autocapitalize="words"></label>
+      </div>
       <div class="row2">
         <label>Telefono<input name="phone" type="tel"></label>
         <label>Altro telefono<input name="phone2" type="tel"></label>
       </div>
       <label>Email<input name="email" type="email" autocapitalize="off"></label>
+      <label>Azienda<input name="company"></label>
+      <label>Ruolo<input name="role"></label>
       <label>Sito web<input name="website" autocapitalize="off"></label>
       <label>Indirizzo<input name="address"></label>
       <label>Evento / dove vi siete conosciuti<input name="event" list="eventList"></label>
@@ -253,7 +256,9 @@
       <div class="sheet-handle"></div>
       <div id="assignText" class="assign-text"></div>
       <div class="assign-grid">
-        <button data-f="name">Nome</button>
+        <button data-f="name">Nome e cognome</button>
+        <button data-f="firstName">Nome</button>
+        <button data-f="lastName">Cognome</button>
         <button data-f="company">Azienda</button>
         <button data-f="role">Ruolo</button>
         <button data-f="phone">Telefono</button>
